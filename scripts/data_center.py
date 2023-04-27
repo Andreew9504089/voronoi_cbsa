@@ -1,8 +1,9 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 
 import rospy
 from geometry_msgs.msg import Point
-from Voronoi_Based_CBSA.msg import ExchangeData, NeighborInfoArray, ExchangeDataArray, TargetInfoArray, NeighborInfo
+from voronoi_cbsa.msg import ExchangeData, NeighborInfoArray, ExchangeDataArray, TargetInfoArray, NeighborInfo
+from std_msgs.msg import Int16MultiArray, Float32MultiArray
 
 import sys
 import numpy as np
@@ -20,6 +21,9 @@ class DataCenter():
         self.target_init = False
         self.pos_init = False
         self.neighbor_init = False
+        self.FoV_init = False
+        self.global_voronoi_init = False
+        self.sub_voronoi_init = False
 
         self.ROSInit()
 
@@ -28,7 +32,7 @@ class DataCenter():
 
         for id in range(self.total_agent):
             if id != self.id:
-                rospy.Subscriber("/agent"+str(id)+"/global/exchange_data", ExchangeData, self.NeighborCallback)
+                rospy.Subscriber("/agent_"+str(id)+"/global/exchange_data", ExchangeData, self.NeighborCallback)
                 
         rospy.Subscriber("local/exchange_data", ExchangeData, self.SelfCallback)
         rospy.Subscriber("/target", TargetInfoArray, self.TargetCallback)
@@ -38,7 +42,7 @@ class DataCenter():
         self.pub_neighbor2control    = rospy.Publisher("local/neighbor_info", NeighborInfoArray, queue_size=10)
         self.pub_exchange2neighbor   = rospy.Publisher("global/exchange_data", ExchangeData, queue_size=10)
         self.pub_exchange2role       = rospy.Publisher("local/received_exchange_data", ExchangeDataArray, queue_size=10)
-
+    
     def NeighborCallback(self, msg):
         # Retrieve the other agents' information who are within the communication range
         pos = np.array([msg.position.x, msg.position.y])
@@ -91,7 +95,7 @@ class DataCenter():
             info.role = item[0].role
             data.append(info)
 
-        msg.data = data
+        msg.neighbors = data
         self.pub_neighbor2control.publish(msg)
 
     def Run(self):
@@ -111,12 +115,18 @@ class DataCenter():
                 self.PubNeighbor2Control()
                 self.PubExchange2Role()
             
+            if self.global_voronoi_init:
+                self.pub_global_voronoi.publish(self.global_voronoi)
+                
+            if self.sub_voronoi_init:
+                self.pub_sub_voronoi.publish(self.sub_voronoi)
+            
             rate.sleep()
 
 if __name__ == "__main__":
     rospy.init_node('data_center', anonymous=True, disable_signals=True)
-    arg = rospy.myargv(argv=sys.argv)
+    id = rospy.get_param("~id", default=0)
 
-    D = DataCenter(id=int(arg[1]))
+    D = DataCenter(id=int(id))
         
     D.Run()

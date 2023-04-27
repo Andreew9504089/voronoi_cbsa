@@ -1,7 +1,7 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 
 import rospy
-from Voronoi_Based_CBSA.msg import TargetInfoArray, TargetInfo
+from voronoi_cbsa.msg import TargetInfoArray, TargetInfo
 
 import pygame
 import numpy as np
@@ -261,7 +261,7 @@ def RandomUnitVector():
     return v/norm(v)
 
 if __name__ == "__main__":
-    Test = True
+    Test = False
 
     if Test:
         pygame.init()
@@ -403,8 +403,9 @@ if __name__ == "__main__":
         rate = rospy.Rate(60)
 
         target_pub = rospy.Publisher("/target", TargetInfoArray, queue_size=10)
-        targets = [[(7, 18), 0.5, 10, RandomUnitVector()], 
-                    [(12, 11), 0.5, 10,RandomUnitVector()]]
+        targets = [[(12, 12), 0.5, 10,RandomUnitVector()],
+                   [(12, 13), 0.5, 10,RandomUnitVector()],
+                   [(18, 10), 0.5, 10,RandomUnitVector()]]
         
         while not rospy.is_shutdown():
                

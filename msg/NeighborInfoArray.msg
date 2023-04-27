@@ -1,1 +1,1 @@
-NeighborInfo[] data
+NeighborInfo[] neighbors

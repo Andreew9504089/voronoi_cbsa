@@ -1,9 +1,9 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 
 import rospy
 from std_msgs.msg import Float64, Int16MultiArray, Float32MultiArray, Int16
 from geometry_msgs.msg import PointStamped, Point
-from Voronoi_Based_CBSA.msg import ExchangeDataArray, VoteList, ExchangeData
+from voronoi_cbsa.msg import ExchangeDataArray, VoteList, ExchangeData
 
 import random
 import numpy as np
@@ -12,6 +12,7 @@ import sys
 from scipy .spatial import Delaunay
 import matplotlib.pyplot as plt
 
+global test
 
 class RoleManager():
     def __init__(self, id, grid_size = (0.1, 0.1), max_age = 1000, total_agents = 3, 
@@ -39,12 +40,13 @@ class RoleManager():
         self.merge_list = {}                                    # merge list merges all agents' votes
         self.neighbor_vote_lists = []                           # stores neighbors' vote lists
         
-        self.test = test
         if not test:
             self.pos_init = False
-            self.pos_buffer = ''
+            self.pos_buffer = pos
             self.scores_init = False
-            self.scores_buffer = {}
+            self.scores_buffer = {-1: 0, 1: 0}
+            self.score2pub = {-1: 0, 1: 0}
+
         
         else:
             self.pos_init = True
@@ -58,8 +60,6 @@ class RoleManager():
 
     # Initialize ROS node, suscriber and publisher
     def ROSInit(self):
-        self.initialized = False
-
         rospy.Subscriber("local/received_exchange_data", ExchangeDataArray, self.ExchangeCallback)
         rospy.Subscriber("local/position", Point, self.PositionCallback)
         rospy.Subscriber("local/scores", Float32MultiArray, self.ScoresCallback)
@@ -79,13 +79,11 @@ class RoleManager():
     def ScoresCallback(self, msg):
         self.scores_init = True
         for i, score in enumerate(msg.data):
-            self.scores_buffer[-1**i] = score
+            self.scores_buffer[(-1)**i] = score if score > 1 else 0
+            self.score2pub[(-1)**i] = score
         
     # Receive neighbors' id, bid and vote list
     def ExchangeCallback(self, msg):
-
-        self.initialized = True
-
         # Retrieve the other agents' information who are within the communication range
         self.valid_members_buffer = {}
         for data in msg.data:
@@ -162,29 +160,38 @@ class RoleManager():
             if id in self.neighbors:
                 self.neighbor_vote_lists.append(self.valid_members[id]["vote_list"]) 
 
-    def ComputeReward(self):
-        if len(self.neighbors) > 0:
+    def ComputeReward(self, type="Centralized"):
+        if type == "Centralized":
+            if len(self.neighbors) > 0:
 
-            neighbor_scores = [0, 0]
-            for neighbor in self.neighbors:
-                neighbor_scores[0] += self.valid_members[neighbor]["score"] \
-                                        if self.valid_members[neighbor]["role"] == 1 else 0
-                neighbor_scores[1] += self.valid_members[neighbor]["score"] \
-                                        if self.valid_members[neighbor]["role"] == -1 else 0
+                neighbor_scores = [0, 0]
+                tmp = []
+                for neighbor in self.neighbors:
+                    neighbor_pos = np.asarray([self.valid_members[neighbor]["pos"][0], self.valid_members[neighbor]["pos"][1]])
+                    distance = np.linalg.norm(self.pos - neighbor_pos)
+                    tmp.append(distance)
+                    
+                    neighbor_scores[0] += np.exp(-2*distance)*self.valid_members[neighbor]["score"] \
+                                            if self.valid_members[neighbor]["role"] == 1 else 0
+                    neighbor_scores[1] += np.exp(-2*distance)*self.valid_members[neighbor]["score"] \
+                                            if self.valid_members[neighbor]["role"] == -1 else 0
+                distance = np.mean(tmp)
+                current_utility = (1 + np.exp(-2*distance)*self.score[self.role] + neighbor_scores[0])*neighbor_scores[1] \
+                                        if self.role == 1 \
+                                            else (1 + np.exp(-2*distance)*self.score[self.role] + neighbor_scores[1])*neighbor_scores[0] 
                 
-            current_utility = (self.score[self.role] + neighbor_scores[0])*neighbor_scores[1] \
-                                    if self.role == 1 \
-                                        else (self.score[self.role] + neighbor_scores[1])*neighbor_scores[0] 
+                switched_utility = (1 + np.exp(-2*distance)*self.score[self.role*-1] + neighbor_scores[0])*neighbor_scores[1] \
+                                        if self.role == -1 \
+                                            else (1 + np.exp(-2*distance)*self.score[self.role*-1] + neighbor_scores[1])*neighbor_scores[0]
+                
+                return switched_utility - current_utility
             
-            switched_utility = (self.score[self.role*-1] + neighbor_scores[0])*neighbor_scores[1] \
-                                    if self.role == -1 \
-                                        else (self.score[self.role*-1] + neighbor_scores[1])*neighbor_scores[0]
-            
-            return switched_utility - current_utility
-        
-        else:
+            else:
 
-            return self.score[self.role*-1] - self.score[self.role]
+                return self.score[self.role*-1] - self.score[self.role]
+        
+        elif type == "Consensus":
+            pass
         
     # Perform Voting Phase with neighbors' bids and vote for the highest one
     def VotingPhase(self):
@@ -275,7 +282,7 @@ class RoleManager():
 
             self.pub_position.publish(position)
 
-            if self.test:
+            if test:
                 position = Point()
                 position.x = self.pos[0]
                 position.y = self.pos[1]
@@ -294,15 +301,16 @@ class RoleManager():
                 neighbors.data.append(self.neighbors[i])
             
             self.pub_neighbors.publish(neighbors)
+            
         def PublishScores():
             scores = Float32MultiArray()
-            scores.data = [self.id, self.score[self.role]]
+            scores.data = [self.id, self.score2pub[self.role]]
 
             self.pub_scores.publish(scores)
         def PublishStep():
 
             data = Int16MultiArray()
-            data.data = [self.id, step]
+            data.data = [self.id, 0]
 
             self.pub_step.publish(data)
 
@@ -316,6 +324,7 @@ class RoleManager():
         self.pub_role.publish(self.role)
 
     def Run(self, type = "CBSA"):
+        global test
         
         r = rospy.get_param("/rate", "60")
         rate = rospy.Rate(float(r))
@@ -323,73 +332,100 @@ class RoleManager():
         self.PublishInfo()
         self.valid_members = self.valid_members_buffer.copy()
         self.score = self.scores_buffer.copy()
-        self.pos = self.pos_buffer
+        self.pos = self.pos_buffer if test == True else self.pos
         cnt = 0
         step = -1
+        
         while not rospy.is_shutdown():
 
-            # Reset agent's knowledge and bid
-            self.ComputeNeighbors()
-            self.reward = self.ComputeReward()
-            self.bid = self.reward
-            self.PublishInfo(step)
-            self.valid_members.update(self.valid_members_buffer.copy())
-            self.score.update(self.scores_buffer.copy())
-            self.pos = self.pos_buffer
+            if self.pos_init and self.scores_init:
 
-           # print(self.id, " => ", self.role, " => ", np.round(self.bid,4), " => ", self.neighbors)
+                # Reset agent's knowledge and bid
+                self.ComputeNeighbors()
+                self.reward = self.ComputeReward()
+                self.bid = self.reward
+                self.valid_members.update(self.valid_members_buffer.copy())
+                self.score.update(self.scores_buffer.copy())
+                self.pos = self.pos_buffer
+                self.PublishInfo(step)
 
-            while True and self.initialized and self.pos_init and self.scores_init:
-            
-                if type == "CBSA":
+                # print(self.id, " => ", self.role, " => ", np.round(self.bid,4), " => ", self.neighbors)
 
-                    # Perform CBSA
-                    self.ComputeNeighbors()
-                    self.VotingPhase()
-                    self.ConsensusPhase()
-                    
-                    self.PublishInfo(step)
-                    self.valid_members.update(self.valid_members_buffer.copy())
-                    self.score.update(self.scores_buffer.copy())
-                    self.pos = self.pos_buffer
+                while True:
+                
+                    if type == "2hop-Consensus":
+                        # Perform CBSA
+                        self.ComputeNeighbors()
+                        self.VotingPhase()
+                        self.ConsensusPhase()
+                        
+                        self.PublishInfo(step)
+                        self.valid_members.update(self.valid_members_buffer.copy())
+                        self.score.update(self.scores_buffer.copy())
+                        self.pos = self.pos_buffer if test == True else self.pos
+                        
+                        # If the agent agrees on others, then switch base on the merge_list and reset CBSA round
+                        if self.stable:
+                            # If the agreement (merge list) indicates that the agent should switch, then switch
+                            if self.merge_list[self.id] and self.reward > 0: 
+                                self.role *= -1 
+                                step = cnt
 
-                    # If the agent agrees on others, then switch base on the merge_list and reset CBSA round
-                    if self.stable:
-                        # If the agreement (merge list) indicates that the agent should swith, then switch
-                        if self.merge_list[self.id]: 
+                            self.merge_list = {}
+                            self.vote_list = {}
+                            
+                            break
+
+                    elif type == "Ego":
+
+                        if self.score[self.role*-1] > self.score[self.role]:
                             self.role *= -1 
                             step = cnt
 
-                        self.merge_list = {}
-                        self.vote_list = {}
+                        self.PublishInfo(step)
+                        self.valid_members.update(self.valid_members_buffer.copy())
+                        self.score.update(self.scores_buffer.copy())
+                        self.pos = self.pos_buffer if test == True else self.pos
+
+                        break
+                    
+                    elif type == "NonConsensus":
+
+                        if self.reward > 0:
+                            self.role *= -1 
+                            step = cnt
+                        
+                        self.PublishInfo(step)
+                        self.valid_members.update(self.valid_members_buffer.copy())
+                        self.score.update(self.scores_buffer.copy())
+                        self.pos = self.pos_buffer if test == True else self.pos
+
+                        break
+                    
+                    elif type == "non-voting":
+                        # Contrsuct bid list
+                        self.bid_list = {}
+                        self.bid_list[self.id] = self.bid
+                        for id in self.neighbors:
+                            self.bid_list[id] = self.valid_members[id]["bid"] 
+
+                        # Use self.vote_list to perform voting
+                        self.vote = max(self.bid_list, key=self.bid_list.get)
+                        
+                        if self.vote == self.id and self.reward > 0:
+                            self.role *= -1
+                            step = cnt
+                        
+                        # if self.score[1] == 0:
+                        #     self.role = -1
+                            
+                        self.PublishInfo(step)
+                        self.valid_members.update(self.valid_members_buffer.copy())
+                        self.score.update(self.scores_buffer.copy())
+                        self.pos = self.pos_buffer if test == True else self.pos
                         
                         break
-
-                elif type == "Ego":
-
-                    if self.score[self.role*-1] > self.score[self.role]:
-                        self.role *= -1 
-                        step = cnt
-
-                    self.PublishInfo(step)
-                    self.valid_members.update(self.valid_members_buffer.copy())
-                    self.score.update(self.scores_buffer.copy())
-                    self.pos = self.pos_buffer
-
-                    break
-                
-                elif type == "NonConsensus":
-
-                    if self.reward > 0:
-                        self.role *= -1 
-                        step = cnt
-                    
-                    self.PublishInfo(step)
-                    self.valid_members.update(self.valid_members_buffer.copy())
-                    self.score.update(self.scores_buffer.copy())
-                    self.pos = self.pos_buffer
-
-                    break
+                            
 
             cnt += 1
             #time.sleep(2)
@@ -397,10 +433,16 @@ class RoleManager():
 
 if __name__=="__main__":
     rospy.init_node('role_manager', anonymous=True, disable_signals=True)
-    arg = rospy.myargv(argv=sys.argv)
+    
+    test = rospy.get_param("/test", default=0)
+    test = False if test == 0 else True
+    id      = rospy.get_param("~id", default=0)
+    pos_x   = rospy.get_param("~x", default=0)
+    pos_y   = rospy.get_param("~y", default=0)
+    
+    pos     = np.array([pos_x, pos_y])
+    
     total_agents = int(rospy.get_param('/total_agents', '1'))
-
-    test = True
 
     if test:
         scores = {0: {1: 78.5,  -1: 81.4},
@@ -424,19 +466,13 @@ if __name__=="__main__":
                 18: {1: 62.08, -1: 71.27},
                 19: {1: 51.59, -1: 90.40},}
         
-        if len(arg) > 2:
-            pos = np.array([float(arg[2]), float(arg[3])])
-
-            if int(arg[1]) in scores:
-                agent = RoleManager(id = int(arg[1]), total_agents= total_agents, pos = pos, scores = scores[int(arg[1])], test=test)
-            
-            else:
-                agent = RoleManager(id = int(arg[1]), total_agents= total_agents, pos = pos, test=test)
+        if int(id) in scores:
+            agent = RoleManager(id = int(id), total_agents= total_agents, pos = pos, scores = scores[int(id)], test=test)
         
         else:
-            agent = RoleManager(id = int(arg[1]), total_agents= total_agents,test=test)
-
+            agent = RoleManager(id = int(id), total_agents= total_agents, pos = pos, test=test)
+    
     else:
-        agent = RoleManager(id = int(arg[1]), total_agents= total_agents,test=test)
+        agent = RoleManager(id = int(id), total_agents= total_agents,test=test)
    
-    agent.Run(type = "NonConsensus")
+    agent.Run(type = "non-voting")

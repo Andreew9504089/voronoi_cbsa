@@ -1,0 +1,42 @@
+<launch>
+
+    <arg name="id"              default="0"     /> 
+    <arg name="position_x"      default="0"     />
+    <arg name="position_y"      default="0"     />
+    <arg name="perspective_x"   default="1"     />
+    <arg name="perspective_y"   default="1"     />
+    <arg name="angle_of_view"   default="10"    />
+    <arg name="desired_range"   default="3"     />
+    <arg name="lambda"          default="2"     />
+    <arg name="R"               default="0"     />
+    <arg name="G"               default="0"     />
+    <arg name="B"               default="0"     />
+    <arg name="max_speed"       default="3"     />
+
+    <group ns="agent_$(arg id)">
+        <node name="RoleManager" pkg="voronoi_cbsa" type="agent.py" output="screen">
+            <param name="id"    type="int"      value="$(arg id)"           />
+            <param name="x"     type="double"   value="$(arg position_x)"   />
+            <param name="y"     type="double"   value="$(arg position_y)"  />
+        </node>
+
+        <node name="DataCenter" pkg="voronoi_cbsa" type="data_center.py" output="screen">
+            <param name="id"    type="int"      value="$(arg id)"           />
+        </node>
+
+        <node name="Controller" pkg="voronoi_cbsa" type="ptz.py" output="screen" >
+            <param name="id"    type="int"      value= "$(arg id)"              />
+            <param name="pos_x" type="double"   value= "$(arg position_x)"      />
+            <param name="pos_y" type="double"   value= "$(arg position_y)"      />
+            <param name="per_x" type="double"   value= "$(arg perspective_x)"   />
+            <param name="per_y" type="double"   value= "$(arg perspective_y)"   />
+            <param name="angle_of_view" type="double"   value= "$(arg angle_of_view)" />
+            <param name="desired_range" type="double"   value="$(arg desired_range)" />
+            <param name="lambda" type="double"  value="$(arg lambda)" />
+            <param name="R" type="int" value="$(arg R)" />
+            <param name="G" type="int" value="$(arg G)" />
+            <param name="B" type="int" value="$(arg B)" />
+            <param name="max_speed" type="double" value="$(arg max_speed)" />
+        </node>
+    </group>
+</launch>

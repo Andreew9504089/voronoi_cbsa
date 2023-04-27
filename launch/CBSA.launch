@@ -1,146 +1,239 @@
 <launch>
-    <rosparam param="/total_agents"> 5 </rosparam>
+    <rosparam param="/total_agents"> 10 </rosparam>
+    <rosparam param="/grid_size"> 0.1 </rosparam>
+    <rosparam param="/map_width"> 24 </rosparam>
+    <rosparam param="/map_height"> 24 </rosparam>
+    <rosparam param="/test"> 0 </rosparam> <!-- 0: False 1: True-->
 
-    <group ns="agent0">
-        <node name="RoleManager0" pkg="Voronoi_Based_CBSA" type="agent.py" output="screen" args="0 5 5">
-        </node>
-        <node name="DataCenter0" pkg="Voronoi_Based_CBSA" type="data_center.py" output="screen" args="0">
-        </node>
-    </group>
+    <node name="Visualizer" pkg="voronoi_cbsa" type="visualize.py" output="screen" />
+    <node name="GroundControlStation" pkg="voronoi_cbsa" type="GroundControl.py" output="screen" />
 
-    <group ns="agent1">
-        <node name="RoleManager1" pkg="Voronoi_Based_CBSA" type="agent.py" output="screen" args="1 15 5">
-        </node>
-        <node name="DataCenter1" pkg="Voronoi_Based_CBSA" type="data_center.py" output="screen" args="1">
-        </node>
-    </group>
+    <include file="$(find voronoi_cbsa)/launch/spawn_agent.launch" >
+        <arg name="id"              value="0"     /> 
+        <arg name="position_x"      value="3"     />
+        <arg name="position_y"      value="3"     />
+        <arg name="perspective_x"   value="1"     />
+        <arg name="perspective_y"   value="1"     />
+        <arg name="angle_of_view"   value="10"    />
+        <arg name="desired_range"   value="3"     />
+        <arg name="lambda"          value="2"     />
+        <arg name="R"               value="0"     />
+        <arg name="G"               value="0"     />
+        <arg name="B"               value="0"     />
+        <arg name="max_speed"       value="1.5"     />
+    </include>
 
-    <group ns="agent2">
-        <node name="RoleManager2" pkg="Voronoi_Based_CBSA" type="agent.py" output="screen" args="2 5 15">
-        </node>
-        <node name="DataCenter2" pkg="Voronoi_Based_CBSA" type="data_center.py" output="screen" args="2">
-        </node>
-    </group>
+    <include file="$(find voronoi_cbsa)/launch/spawn_agent.launch" >
+        <arg name="id"              value="1"     /> 
+        <arg name="position_x"      value="1"     />
+        <arg name="position_y"      value="2"     />
+        <arg name="perspective_x"   value="1"     />
+        <arg name="perspective_y"   value="1"     />
+        <arg name="angle_of_view"   value="10"    />
+        <arg name="desired_range"   value="3"     />
+        <arg name="lambda"          value="2"     />
+        <arg name="R"               value="0"     />
+        <arg name="G"               value="0"     />
+        <arg name="B"               value="0"     />
+        <arg name="max_speed"       value="1.5"     />
+    </include>
 
-    <group ns="agent3">
-        <node name="RoleManager3" pkg="Voronoi_Based_CBSA" type="agent.py" output="screen" args="3 10 10">
-        </node>
-        <node name="DataCenter3" pkg="Voronoi_Based_CBSA" type="data_center.py" output="screen" args="3">
-        </node>
-    </group>
+    <include file="$(find voronoi_cbsa)/launch/spawn_agent.launch" >
+        <arg name="id"              value="2"     /> 
+        <arg name="position_x"      value="1"     />
+        <arg name="position_y"      value="3"     />
+        <arg name="perspective_x"   value="1"     />
+        <arg name="perspective_y"   value="1"     />
+        <arg name="angle_of_view"   value="10"    />
+        <arg name="desired_range"   value="3"     />
+        <arg name="lambda"          value="2"     />
+        <arg name="R"               value="0"     />
+        <arg name="G"               value="0"     />
+        <arg name="B"               value="0"     />
+        <arg name="max_speed"       value="1.5"     />
+    </include>
 
-    <group ns="agent4">
-        <node name="RoleManager4" pkg="Voronoi_Based_CBSA" type="agent.py" output="screen" args="4 15 15">
-        </node>
-        <node name="DataCenter4" pkg="Voronoi_Based_CBSA" type="data_center.py" output="screen" args="4">
-        </node>
-    </group>
+    <include file="$(find voronoi_cbsa)/launch/spawn_agent.launch" >
+        <arg name="id"              value="3"     /> 
+        <arg name="position_x"      value="1"     />
+        <arg name="position_y"      value="4"     />
+        <arg name="perspective_x"   value="1"     />
+        <arg name="perspective_y"   value="1"     />
+        <arg name="angle_of_view"   value="10"    />
+        <arg name="desired_range"   value="3"     />
+        <arg name="lambda"          value="2"     />
+        <arg name="R"               value="0"     />
+        <arg name="G"               value="0"     />
+        <arg name="B"               value="0"     />
+        <arg name="max_speed"       value="1.5"     />
+    </include>
+
+    <include file="$(find voronoi_cbsa)/launch/spawn_agent.launch" >
+        <arg name="id"              value="4"     /> 
+        <arg name="position_x"      value="1"     />
+        <arg name="position_y"      value="5"     />
+        <arg name="perspective_x"   value="1"     />
+        <arg name="perspective_y"   value="1"     />
+        <arg name="angle_of_view"   value="10"    />
+        <arg name="desired_range"   value="3"     />
+        <arg name="lambda"          value="2"     />
+        <arg name="R"               value="0"     />
+        <arg name="G"               value="0"     />
+        <arg name="B"               value="0"     />
+        <arg name="max_speed"       value="1.5"     />
+    </include>
+
+    <include file="$(find voronoi_cbsa)/launch/spawn_agent.launch" >
+        <arg name="id"              value="5"     /> 
+        <arg name="position_x"      value="2"     />
+        <arg name="position_y"      value="1"     />
+        <arg name="perspective_x"   value="1"     />
+        <arg name="perspective_y"   value="1"     />
+        <arg name="angle_of_view"   value="10"    />
+        <arg name="desired_range"   value="3"     />
+        <arg name="lambda"          value="2"     />
+        <arg name="R"               value="0"     />
+        <arg name="G"               value="0"     />
+        <arg name="B"               value="0"     />
+        <arg name="max_speed"       value="1.5"     />
+    </include>
+
+
+    <include file="$(find voronoi_cbsa)/launch/spawn_agent.launch" >
+        <arg name="id"              value="6"     /> 
+        <arg name="position_x"      value="3"     />
+        <arg name="position_y"      value="1"     />
+        <arg name="perspective_x"   value="1"     />
+        <arg name="perspective_y"   value="1"     />
+        <arg name="angle_of_view"   value="10"    />
+        <arg name="desired_range"   value="3"     />
+        <arg name="lambda"          value="2"     />
+        <arg name="R"               value="0"     />
+        <arg name="G"               value="0"     />
+        <arg name="B"               value="0"     />
+        <arg name="max_speed"       value="1.5"     />
+    </include>
+
+    <include file="$(find voronoi_cbsa)/launch/spawn_agent.launch" >
+        <arg name="id"              value="7"     /> 
+        <arg name="position_x"      value="4"     />
+        <arg name="position_y"      value="1"     />
+        <arg name="perspective_x"   value="1"     />
+        <arg name="perspective_y"   value="1"     />
+        <arg name="angle_of_view"   value="10"    />
+        <arg name="desired_range"   value="3"     />
+        <arg name="lambda"          value="2"     />
+        <arg name="R"               value="0"     />
+        <arg name="G"               value="0"     />
+        <arg name="B"               value="0"     />
+        <arg name="max_speed"       value="1.5"     />
+    </include>
+
+    <include file="$(find voronoi_cbsa)/launch/spawn_agent.launch" >
+        <arg name="id"              value="8"     /> 
+        <arg name="position_x"      value="5"     />
+        <arg name="position_y"      value="1"     />
+        <arg name="perspective_x"   value="1"     />
+        <arg name="perspective_y"   value="1"     />
+        <arg name="angle_of_view"   value="10"    />
+        <arg name="desired_range"   value="3"     />
+        <arg name="lambda"          value="2"     />
+        <arg name="R"               value="0"     />
+        <arg name="G"               value="0"     />
+        <arg name="B"               value="0"     />
+        <arg name="max_speed"       value="1.5"     />
+    </include>
+
+    <include file="$(find voronoi_cbsa)/launch/spawn_agent.launch" >
+        <arg name="id"              value="9"     /> 
+        <arg name="position_x"      value="2"     />
+        <arg name="position_y"      value="2"     />
+        <arg name="perspective_x"   value="1"     />
+        <arg name="perspective_y"   value="1"     />
+        <arg name="angle_of_view"   value="10"    />
+        <arg name="desired_range"   value="3"     />
+        <arg name="lambda"          value="2"     />
+        <arg name="R"               value="0"     />
+        <arg name="G"               value="0"     />
+        <arg name="B"               value="0"     />
+        <arg name="max_speed"       value="1.5"     />
+    </include>
+
 <!--
-    <group ns="agent5">
-        <node name="RoleManager5" pkg="Voronoi_Based_CBSA" type="agent.py" output="screen" args="5 3 8">
-        </node>
-        <node name="DataCenter5" pkg="Voronoi_Based_CBSA" type="data_center.py" output="screen" args="5">
-        </node>
-    </group>
+    <include file="$(find voronoi_cbsa)/launch/spawn_agent.launch" >
+        <arg name="id"              value="10"     /> 
+        <arg name="position_x"      value="16"     />
+        <arg name="position_y"      value="17"     />
+        <arg name="perspective_x"   value="1"     />
+        <arg name="perspective_y"   value="1"     />
+        <arg name="angle_of_view"   value="10"    />
+        <arg name="desired_range"   value="3"     />
+        <arg name="lambda"          value="2"     />
+        <arg name="R"               value="0"     />
+        <arg name="G"               value="0"     />
+        <arg name="B"               value="0"     />
+        <arg name="max_speed"       value="1"     />
+    </include>
 
-    <group ns="agent6">
-        <node name="RoleManager6" pkg="Voronoi_Based_CBSA" type="agent.py" output="screen" args="6 17 9">
-        </node>
-        <node name="DataCenter6" pkg="Voronoi_Based_CBSA" type="data_center.py" output="screen" args="6">
-        </node>
-    </group>
 
-    <group ns="agent7">
-        <node name="RoleManager7" pkg="Voronoi_Based_CBSA" type="agent.py" output="screen" args="7 11 14.7">
-        </node>
-        <node name="DataCenter7" pkg="Voronoi_Based_CBSA" type="data_center.py" output="screen" args="7">
-        </node>
-    </group>
+    <include file="$(find voronoi_cbsa)/launch/spawn_agent.launch" >
+        <arg name="id"              value="11"     /> 
+        <arg name="position_x"      value="2"     />
+        <arg name="position_y"      value="17"     />
+        <arg name="perspective_x"   value="1"     />
+        <arg name="perspective_y"   value="1"     />
+        <arg name="angle_of_view"   value="10"    />
+        <arg name="desired_range"   value="3"     />
+        <arg name="lambda"          value="2"     />
+        <arg name="R"               value="0"     />
+        <arg name="G"               value="0"     />
+        <arg name="B"               value="0"     />
+        <arg name="max_speed"       value="1"     />
+    </include> -->
 
-    <group ns="agent8">
-        <node name="RoleManager8" pkg="Voronoi_Based_CBSA" type="agent.py" output="screen" args="8 6 17">
-        </node>
-        <node name="DataCenter8" pkg="Voronoi_Based_CBSA" type="data_center.py" output="screen" args="8">
-        </node>
-    </group>
+    <!-- <include file="$(find voronoi_cbsa)/launch/spawn_agent.launch" >
+        <arg name="id"              value="12"     /> 
+        <arg name="position_x"      value="15"     />
+        <arg name="position_y"      value="18"     />
+        <arg name="perspective_x"   value="1"     />
+        <arg name="perspective_y"   value="1"     />
+        <arg name="angle_of_view"   value="10"    />
+        <arg name="desired_range"   value="3"     />
+        <arg name="lambda"          value="2"     />
+        <arg name="R"               value="0"     />
+        <arg name="G"               value="0"     />
+        <arg name="B"               value="0"     />
+        <arg name="max_speed"       value="1"     />
+    </include>
 
-    <group ns="agent9">
-        <node name="RoleManager9" pkg="Voronoi_Based_CBSA" type="agent.py" output="screen" args="9 17 13">
-        </node>
-        <node name="DataCenter9" pkg="Voronoi_Based_CBSA" type="data_center.py" output="screen" args="9">
-        </node>
-    </group>
-   -->
-    <!--
-    <node name="agent9" pkg="Voronoi_Based_CBSA" type="agent.py" output="screen" args="9 17 13">
-    </node>
+    <include file="$(find voronoi_cbsa)/launch/spawn_agent.launch" >
+        <arg name="id"              value="13"     /> 
+        <arg name="position_x"      value="23"     />
+        <arg name="position_y"      value="21"     />
+        <arg name="perspective_x"   value="1"     />
+        <arg name="perspective_y"   value="1"     />
+        <arg name="angle_of_view"   value="10"    />
+        <arg name="desired_range"   value="3"     />
+        <arg name="lambda"          value="2"     />
+        <arg name="R"               value="0"     />
+        <arg name="G"               value="0"     />
+        <arg name="B"               value="0"     />
+        <arg name="max_speed"       value="1"     />
+    </include>
 
-    <node name="agent10" pkg="Voronoi_Based_CBSA" type="agent.py" output="screen" args="10 13 18">
-    </node>
+    <include file="$(find voronoi_cbsa)/launch/spawn_agent.launch" >
+        <arg name="id"              value="14"     /> 
+        <arg name="position_x"      value="1"     />
+        <arg name="position_y"      value="5"     />
+        <arg name="perspective_x"   value="1"     />
+        <arg name="perspective_y"   value="1"     />
+        <arg name="angle_of_view"   value="10"    />
+        <arg name="desired_range"   value="3"     />
+        <arg name="lambda"          value="2"     />
+        <arg name="R"               value="0"     />
+        <arg name="G"               value="0"     />
+        <arg name="B"               value="0"     />
+        <arg name="max_speed"       value="1"     />
+    </include> -->
 
-    <node name="agent11" pkg="Voronoi_Based_CBSA" type="agent.py" output="screen" args="11 6 19">
-    </node>
-
-    <node name="agent12" pkg="Voronoi_Based_CBSA" type="agent.py" output="screen" args="12 17 11">
-    </node>
-
-    <node name="agent13" pkg="Voronoi_Based_CBSA" type="agent.py" output="screen" args="13 16 4">
-    </node>
-
-    <node name="agent14" pkg="Voronoi_Based_CBSA" type="agent.py" output="screen" args="14 9 15">
-    </node>
-
-    <node name="agent15" pkg="Voronoi_Based_CBSA" type="agent.py" output="screen" args="15 19.66 19.63">
-    </node>
-
-    <node name="agent16" pkg="Voronoi_Based_CBSA" type="agent.py" output="screen" args="16 11.89 14.96">
-    </node>
-
-    <node name="agent17" pkg="Voronoi_Based_CBSA" type="agent.py" output="screen" args="17 0.98 19.48">
-    </node>
-
-    <node name="agent18" pkg="Voronoi_Based_CBSA" type="agent.py" output="screen" args="18 14.43 5.57">
-    </node>
-
-    <node name="agent19" pkg="Voronoi_Based_CBSA" type="agent.py" output="screen" args="19 8.3 8.14">
-    </node> -->
-<!-- 
-    <node name="agent20" pkg="Voronoi_Based_CBSA" type="agent.py" output="screen" args="20">
-    </node>
-
-    <node name="agent21" pkg="Voronoi_Based_CBSA" type="agent.py" output="screen" args="21">
-    </node>
-
-    <node name="agent22" pkg="Voronoi_Based_CBSA" type="agent.py" output="screen" args="22">
-    </node>
-
-    <node name="agent23" pkg="Voronoi_Based_CBSA" type="agent.py" output="screen" args="23">
-    </node>
-
-    <node name="agent24" pkg="Voronoi_Based_CBSA" type="agent.py" output="screen" args="24">
-    </node>
-
-    <node name="agent25" pkg="Voronoi_Based_CBSA" type="agent.py" output="screen" args="25">
-    </node>
-
-    <node name="agent26" pkg="Voronoi_Based_CBSA" type="agent.py" output="screen" args="26">
-    </node>
-
-    <node name="agent27" pkg="Voronoi_Based_CBSA" type="agent.py" output="screen" args="27">
-    </node>
-
-    <node name="agent28" pkg="Voronoi_Based_CBSA" type="agent.py" output="screen" args="28">
-    </node>
-
-    <node name="agent29" pkg="Voronoi_Based_CBSA" type="agent.py" output="screen" args="29">
-    </node>
-
-    <node name="agent30" pkg="Voronoi_Based_CBSA" type="agent.py" output="screen" args="30">
-    </node>
-
-    <node name="agent31" pkg="Voronoi_Based_CBSA" type="agent.py" output="screen" args="31">
-    </node>
-
-    <node name="agent32" pkg="Voronoi_Based_CBSA" type="agent.py" output="screen" args="32">
-    </node> -->
 </launch>
