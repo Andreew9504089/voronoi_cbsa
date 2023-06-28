@@ -59,6 +59,8 @@ add_message_files(
     ExchangeDataArray.msg
     TargetInfo.msg
     TargetInfoArray.msg
+    SensorArray.msg
+    Sensor.msg
 )
 
 ## Generate services in the 'srv' folder

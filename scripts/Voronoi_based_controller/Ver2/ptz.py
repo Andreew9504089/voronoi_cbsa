@@ -2,7 +2,7 @@
 import rospy
 from geometry_msgs.msg import Pose, Point
 from voronoi_cbsa.msg import ExchangeData, NeighborInfoArray, TargetInfoArray
-from std_msgs.msg import Int16, Float32MultiArray, Int16MultiArray
+from std_msgs.msg import Int16, Float32MultiArray, Int16MultiArray, Float32
 from sensor_msgs.msg import Image
 from cv_bridge import CvBridge
 
@@ -35,6 +35,7 @@ class PTZCamera():
         self.positional_force = np.array([0.,0.])
         self.targets = []
         self.FoV = np.zeros(self.size)
+        self.intercept_map = np.zeros(self.size)
         self.global_event = np.zeros(self.size)
         self.global_event_plt = np.zeros(self.size)
         self.global_voronoi = np.zeros(self.size)
@@ -53,6 +54,7 @@ class PTZCamera():
         self.role_buffer = "Tracker"
         self.target_received = False
         self.neighbor_FoV = {}
+        self.neighbor_intercept_map = {}
 
         self.RosInit()
 
@@ -64,12 +66,15 @@ class PTZCamera():
         
         for i in range(self.total_agents):
             rospy.Subscriber("/agent_"+str(i)+"/FoV", Image, self.FoVCB(id=i))
+            rospy.Subscriber("/agent_"+str(i)+"/InterceptMap", Image, self.InterceptCB(id=i))
             
-        self.pub_scores = rospy.Publisher("local/scores", Float32MultiArray, queue_size=10)
-        self.pub_pos    = rospy.Publisher("local/position", Point, queue_size=10)
-        self.pub_fov    = rospy.Publisher("FoV", Image, queue_size=10)
-        self.pub_sub_voronoi       = rospy.Publisher("visualize/sub_voronoi", Int16MultiArray, queue_size=10)
-        self.pub_global_voronoi    = rospy.Publisher("visualize/global_voronoi", Int16MultiArray, queue_size=10)
+        self.pub_scores             = rospy.Publisher("local/scores", Float32MultiArray, queue_size=10)
+        self.pub_pos                = rospy.Publisher("local/position", Point, queue_size=10)
+        self.pub_fov                = rospy.Publisher("FoV", Image, queue_size=10)
+        self.pub_int_map            = rospy.Publisher("InterceptMap", Image, queue_size=10)
+        self.pub_sub_voronoi        = rospy.Publisher("visualize/sub_voronoi", Int16MultiArray, queue_size=10)
+        self.pub_global_voronoi     = rospy.Publisher("visualize/global_voronoi", Int16MultiArray, queue_size=10)
+        self.pub_weight             = rospy.Publisher("local/weight", Float32, queue_size=10)  
 
     def FoVCB(self, id):
         def callback(msg):
@@ -78,6 +83,16 @@ class PTZCamera():
             bridge = CvBridge()
             img_array = bridge.imgmsg_to_cv2(msg, desired_encoding='mono8')
             self.neighbor_FoV[id] = (img_array/255).astype(np.float32)
+            
+        return callback
+    
+    def InterceptCB(self, id):
+        def callback(msg):
+            self.FoV_init = True
+            
+            bridge = CvBridge()
+            img_array = bridge.imgmsg_to_cv2(msg, desired_encoding='mono8')
+            self.neighbor_intercept_map[id] = (img_array/255).astype(np.float32)
             
         return callback
     
@@ -126,11 +141,70 @@ class PTZCamera():
         self.pub_scores.publish(scores)
         
         bridge = CvBridge()
-        FoV = ((self.FoV)*255).astype(np.uint8)
+        if self.role == "Tracker":
+            FoV = (((self.FoV)*255).astype(np.uint8))
+        else:
+            FoV = ((self.intercept_map)*255).astype(np.uint8)
         msg = bridge.cv2_to_imgmsg(FoV, encoding='mono8')
         msg.header.stamp = rospy.Time.now()
         self.pub_fov.publish(msg)
         
+        weight = Float32()
+        if self.role == "Tracker":
+            weight.data = self.R*np.cos(self.alpha)
+        else:
+            weight.data = self.max_speed
+        self.pub_weight.publish(weight)
+        
+    # Find the agent's voronoi neighbors
+    def ComputeNeighbors(self):
+
+        if len(self.neighbors.keys()) >= 4:
+
+            keys = [self.id]
+            for key in self.neighbors.keys():
+                keys.append(key)
+
+            idx_map = {}
+            idx_list = []
+
+            for i, key in enumerate(keys):
+                idx_map[key] = i
+                idx_list.append(key)
+
+            points = [0 for i in keys]
+            points[0] = self.pos/self.grid_size
+
+            for member in self.neighbors.keys():
+                pos = np.asarray([self.neighbors[member]["position"][0], self.neighbors[member]["position"][1]])
+                points[idx_map[member]] = pos/self.grid_size
+
+            points = np.asarray(points)
+            tri = Delaunay(points)
+
+            ids = []
+            for simplex in tri.simplices:
+                if idx_map[self.id] in simplex:
+                    for id in simplex:
+                        ids.append(id)
+
+            neighbors = []
+            for member in self.neighbors.keys():
+                if idx_map[member] in ids:
+
+                    neighbors.append(member)
+            
+        elif len(self.neighbors.keys()) >= 0:
+
+            neighbors = []
+            for member in self.neighbors.keys():
+                neighbors.append(member)
+
+        else:
+            neighbors = []
+            
+        return neighbors
+    
     def Update(self, targets=None, neighbors=None, centroid_tmp=None, geo_center_tmp=None, sub_global_voronoi=None):
 
         if self.target_received:
@@ -138,6 +212,11 @@ class PTZCamera():
             self.targets = self.target_buffer.copy()                           # targets
             self.role = self.role_buffer
 
+            vor_neighbors = self.ComputeNeighbors()
+            tmp = {}
+            for id in vor_neighbors:
+                tmp[id] = self.neighbors[id]
+            self.neighbors = tmp
             # self.centroid = centroid_tmp
             # self.geo_center = geo_center_tmp
             # self.sub_global = sub_global_voronoi
@@ -201,7 +280,7 @@ class PTZCamera():
 
             self.positional_force = np.clip((self.centroid*self.grid_size - self.pos), -self.max_speed, self.max_speed)
 
-        self.pos += 0#self.Kp*self.positional_force*self.step
+        self.pos += self.Kp*self.positional_force*self.step
         if self.pos[0] < 0:
             self.pos[0] = 0
         if self.pos[1] < 0:
@@ -248,7 +327,7 @@ class PTZCamera():
             self.geo_center = (0.,0.)
             
         self.centroid = ((weighted_x, weighted_y))
-        self.sub_voronoi = sub_global_voronoi
+        self.sub_voronoi = np.where(sub_global_voronoi > 0, 1, 0)
         self.global_voronoi = global_voronoi
 
         return 
@@ -258,10 +337,18 @@ class PTZCamera():
 
         pos_self = self.pos
         grid_size = self.grid_size
-
-        sub_global_voronoi = (np.sqrt((pos_self[0]/grid_size[0] - x_coords)**2 + (pos_self[1]/grid_size[1] - y_coords)**2))*self.global_event
+        global_voronoi = (np.sqrt((pos_self[0]/grid_size[0] - x_coords)**2 + (pos_self[1]/grid_size[1] - y_coords)**2))*self.global_event
+        sub_global_voronoi = global_voronoi.copy()
 
         for neighbor in self.neighbors.keys():
+
+            if self.neighbors[neighbor]["role"] == "Interceptor":
+                pos_self = self.neighbors[neighbor]["position"]
+                grid_size = self.grid_size
+
+                cost = (np.sqrt((pos_self[0]/grid_size[0] - x_coords)**2 + (pos_self[1]/grid_size[1] - y_coords)**2))*self.global_event
+                mask = np.where(cost < global_voronoi)
+                global_voronoi[mask] = 0
 
             pos_self = self.neighbors[neighbor]["position"]
             grid_size = self.grid_size
@@ -270,20 +357,28 @@ class PTZCamera():
             mask = np.where(cost < sub_global_voronoi)
             sub_global_voronoi[mask] = 0
 
-        indices = np.where(sub_global_voronoi > 0)
-        weighted_x = int(np.average(indices[0], weights=self.global_event[indices]))
-        weighted_y = int(np.average(indices[1], weights=self.global_event[indices]))
+        indices = np.where(global_voronoi > 0)
+        if np.sum(self.global_event[indices]) > 0:
+            weighted_x = int(np.average(indices[0], weights=self.global_event[indices]))
+            weighted_y = int(np.average(indices[1], weights=self.global_event[indices]))
+            
+            self.geo_center = ((int(np.mean(indices[0])), int(np.mean(indices[1]))))
+        else:
+            weighted_x = 0
+            weighted_y = 0
+            
+            self.geo_center = (0.,0.)
+            
         self.centroid = ((weighted_x, weighted_y))
-        self.geo_center = ((int(np.mean(indices[0])), int(np.mean(indices[1]))))
-        self.sub_voronoi = sub_global_voronoi
+        self.sub_voronoi = np.where(sub_global_voronoi > 0, 1, 0)
+        self.global_voronoi = global_voronoi
 
     def UpdateFoV(self):
 
         range_max = (self.lamb + 1)/(self.lamb)*self.R
         quality_map = None
         quality_int_map = None
-        intercept_map = np.zeros(self.FoV.shape)
-        self.intercept_quality = 0
+        self.intercept_map = np.zeros(self.FoV.shape)
 
         for y_map in range(max(int((self.pos[1] - range_max)/self.grid_size[1]), 0),\
                             min(int((self.pos[1] + range_max)/self.grid_size[1]), self.size[1])):
@@ -306,15 +401,12 @@ class PTZCamera():
                 quality_map = np.vstack((quality_map, quality))
                 quality_int_map = np.vstack((quality_int_map, q_int))
 
-        intercept_map[max(int((self.pos[1] - range_max)/self.grid_size[1]), 0):\
+        self.intercept_map[max(int((self.pos[1] - range_max)/self.grid_size[1]), 0):\
                                 min(int((self.pos[1] + range_max)/self.grid_size[1]), self.size[0]),\
                                     max(int((self.pos[0] - range_max)/self.grid_size[0]), 0):\
                                         min(int((self.pos[0] + range_max)/self.grid_size[0]), self.size[0])]\
                                             = quality_int_map
         
-        #intercept_map = np.where(self.sub_voronoi > 0, intercept_map ,0)
-        self.intercept_quality = np.sum(intercept_map*np.transpose(self.global_event))
-
         self.FoV[max(int((self.pos[1] - range_max)/self.grid_size[1]), 0):\
                     min(int((self.pos[1] + range_max)/self.grid_size[1]), self.size[0]),\
                         max(int((self.pos[0] - range_max)/self.grid_size[0]), 0):\
@@ -325,11 +417,17 @@ class PTZCamera():
     def UpdateLocalVoronoi(self):
         
         quality_map = self.FoV
+        intercept_map = self.intercept_map
         for neighbor in self.neighbors.keys():
             if neighbor in self.neighbor_FoV.keys():
                 quality_map = np.where((quality_map > self.neighbor_FoV[neighbor]), quality_map, 0)
 
+            if neighbor in self.neighbor_intercept_map.keys():
+                intercept_map = np.where((intercept_map > self.neighbor_intercept_map[neighbor]), intercept_map, 0)
+        
+        #self.intercept_map = np.where(np.transpose(self.sub_voronoi) > 0, 1, 0)    
         self.coverage_quality = np.sum(quality_map*np.transpose(self.global_event))
+        self.intercept_quality = np.sum(intercept_map*np.transpose(self.global_event))
         self.local_voronoi = np.array(np.where((quality_map > 0) & (self.FoV != 0))) #np.where(self.FoV != 0) 
         self.local_voronoi_map = np.where(((quality_map != 0) & (self.FoV != 0)), quality_map, 0)
         self.overlap = np.array(np.where((quality_map == 0) & (self.FoV != 0)))
@@ -378,7 +476,10 @@ class PTZCamera():
                                             self.perspective[None,:]))  @  (v_V.reshape(2,1))
             zoom_force -= self.Ka*(self.alpha - alpha_v)
 
-        self.perspective_force = np.asarray([rotational_force[0][0], rotational_force[1][0]])
+        #self.perspective_force = np.asarray([rotational_force[0][0], rotational_force[1][0]])
+        self.perspective_force = ((self.centroid*self.grid_size - self.pos)\
+                                    /np.linalg.norm(self.centroid*self.grid_size - self.pos)\
+                                        - self.perspective)
         self.zoom_force = zoom_force
 
         return
@@ -466,7 +567,7 @@ if __name__ == "__main__":
         id                  = rospy.get_param("~id", default=0)
         pos_x               = rospy.get_param("~pos_x", default=0)
         pos_y               = rospy.get_param("~pos_y", default=0)
-        init_position       = (np.random.random((1,2))*18)[0]#np.array([pos_x, pos_y])
+        init_position       = np.array([pos_x, pos_y])#(np.random.random((1,2))*18)[0]
         per_x               = rospy.get_param("~per_x", default=0)
         per_y               = rospy.get_param("~per_y", default=0)
         init_perspective    = np.array([per_x, per_y])

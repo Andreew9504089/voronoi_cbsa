@@ -382,7 +382,7 @@ if __name__ == "__main__":
             event_plt1 = ((event1 - event1.min()) * (1/(event1.max() - event1.min()) * 255)).astype('uint8')
             # Update Global and Local Voronoi 
             global_voronoi, centroids, geo_centers, sub_centroids, sub_global_voronoi = \
-                ComputeGlobalVoronoi(uav_team.members, event1) # Will be integrated into each member to achieve distributive computation in the future
+                ComputeGlobalVoronoi(uav_team.members, event1)
 
             for i in range(len(uav_team.members)):
 
@@ -403,9 +403,18 @@ if __name__ == "__main__":
         rate = rospy.Rate(60)
 
         target_pub = rospy.Publisher("/target", TargetInfoArray, queue_size=10)
-        targets = [[(12, 12), 0.5, 10,RandomUnitVector()],
-                   [(12, 13), 0.5, 10,RandomUnitVector()],
-                   [(18, 10), 0.5, 10,RandomUnitVector()]]
+        
+        def random_pos(pos=(0,0)):
+            if pos == (0,0):
+                x = np.random.random()*15 + 5
+                y = np.random.random()*15 + 5
+                return np.array((x,y))
+            else:
+                return np.asarray(pos)
+        
+        targets = [[random_pos((12,8)), 0.5, 10,RandomUnitVector()],
+                   [random_pos((20,18)), 0.5, 10,RandomUnitVector()],
+                   [random_pos((4,18)), 0.5, 10,RandomUnitVector()]]
         
         while not rospy.is_shutdown():
                

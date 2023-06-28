@@ -4,10 +4,13 @@ import pygame
 import numpy as np
 import matplotlib.pyplot as plt
 import time
+import cv2
+import os
+import imageio
 
 from cv_bridge import CvBridge
 from sensor_msgs.msg import Image
-from std_msgs.msg import Int16MultiArray, Float32MultiArray
+from std_msgs.msg import Int16MultiArray, Float32MultiArray, Float64MultiArray
 from sensor_msgs.msg import Image
 from geometry_msgs.msg import PointStamped
 from voronoi_cbsa.msg import ExchangeData, NeighborInfoArray, TargetInfoArray
@@ -63,6 +66,14 @@ class Visualize2D():
         self.display = pygame.display.set_mode(self.window_size)
         self.display.fill((0,0,0))
         self.blockSize = int(self.window_size[0]/self.size[0])
+
+        # define the codec and create a video writer object
+        self.cnt = 0
+        self.images = []
+        self.timestr = time.strftime("%Y%m%d-%H%M%S")
+        self.prefix = '~/research_ws/src/voronoi_cbsa/result/'
+        if not os.path.exists(self.prefix + self.timestr):
+            os.makedirs(self.prefix + self.timestr)
 
     def TargetCallback(self, msg):
         self.target_received = True
@@ -296,6 +307,16 @@ class Visualize2D():
 
         pygame.display.flip()
         
+        # transform the pixels to the format used by open-cv
+        pixels = cv2.rotate(pygame.surfarray.pixels3d(self.display), cv2.ROTATE_90_CLOCKWISE)
+        pixels = cv2.flip(pixels, 1)
+        pixels = cv2.cvtColor(pixels, cv2.COLOR_RGB2BGR)
+
+        self.images.append(pixels)
+        
+    def End(self):
+        imageio.mimsave(self.prefix+self.timestr+'.gif', self.images)
+        
 if __name__=="__main__":
     rospy.init_node('visualizer', anonymous=False, disable_signals=True)
     total_agents = rospy.get_param('/total_agents', '1')
@@ -307,6 +328,7 @@ if __name__=="__main__":
         for op in pygame.event.get():
             if op.type == pygame.QUIT:
                 Done = True 
+                visualizer.End()
         
         visualizer.Update()
             
