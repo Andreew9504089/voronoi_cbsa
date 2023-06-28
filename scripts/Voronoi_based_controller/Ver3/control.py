@@ -216,13 +216,19 @@ class PTZCamera():
                 self.sensor_voronoi[role] = np.zeros(self.size)
                 self.sensor_graph[role] = self.ComputeNeighbors(role=role)
                 self.UpdateSensorVoronoi(role = role)
-                
-            self.ComputeCentroid()
-            self.UpdatePosition()
-            self.UpdatePerspective()
-            self.ComputeSensorQuality()
+
+            u_p, u_v = self.ComputeControlSignal()
+            self.UpdatePosition(u_p)
+            self.UpdatePerspective(u_v)
             self.PublishInfo()
 
+            """TODO
+            1. Finish perspective control signal
+            2. Finish update position and perspective
+            3. Compute score of agent's different sensor to publish
+            4. Compute cooperative score of each sensor to other agents
+            """
+            
     def UpdatePosition(self):
         u1 = np.array([0., 0.])
         for role in range(self.total_sensors):
@@ -289,14 +295,16 @@ class PTZCamera():
                     
                     for k in self.valid_sensors.keys():
                         if k in event[5] and k != role:
-                            tmp_x *= self.ComputeSensorQuality(k)
-                            tmp_y *= self.ComputeSensorQuality(k)
+                            tmp_x *= 1 + np.where(self.ComputeSensorQuality(k))
+                            tmp_y *= 1 + self.ComputeSensorQuality(k)
                             
                     tmp_x *= self.event_density[event]
                     tmp_y *= self.event_density[event]
                     
                     u_x += np.sum(tmp_x)
                     u_y += np.sum(tmp_y)
+        
+        return np.array([u_x, u_y])
                     
     def ComputeGradient(self, role, type):
         x_coords, y_coords = np.meshgrid(np.arange(self.size[0]), np.arange(self.size[1]), indexing='ij')
@@ -326,19 +334,37 @@ class PTZCamera():
         grid_size = self.grid_size
         vec = np.dstack((x_coords, y_coords))/grid_size - pos_self
 
-        for role in range(self.total_sensors):
-            if role == 0:
+        if role == 'camera':
+            dist = np.sqrt((pos_self[0]/grid_size[0] - x_coords)**2 + (pos_self[1]/grid_size[1] - y_coords)**2)-self.camera_range
+            total_quality = np.zeros(self.size)
+            for neighbor in self.sensor_graph[role].keys():
+                territory = np.where(self.sensor_voronoi[role] == neighbor, -1, self.sensor_voronoi[role])
+                individual_quality = exp(-(dist**2)/(2*self.camera_variance**2))
+                individual_quality = np.where(territory > -1, 0, individual_quality)
                 
-                self.sensor_qualities[role] = np.sum(self.sensor_voronoi[role])
-                self.sensor_footprint[role] = self.sensor_voronoi[role]
+                total_quality += individual_quality
+                
+        elif role == 'manipulator':
+            dist = self.operation_range - np.sqrt((pos_self[0]/grid_size[0] - x_coords)**2 + (pos_self[1]/grid_size[1] - y_coords)**2)
+            total_quality = np.zeros(self.size)
+            for neighbor in self.sensor_graph[role].keys():
+                territory = np.where(self.sensor_voronoi[role] == neighbor, -1, self.sensor_voronoi[role])
+                individual_quality = 1/(1+exp(-2*self.approx_param*(dist)))
+                individual_quality = np.where(territory > -1, 0, individual_quality)
+                
+                total_quality += individual_quality
+                   
+        elif role == 'smoke detector':
+            dist = np.sqrt((pos_self[0]/grid_size[0] - x_coords)**2 + (pos_self[1]/grid_size[1] - y_coords)**2)
+            total_quality = np.zeros(self.size)
+            for neighbor in self.sensor_graph[role].keys():
+                territory = np.where(self.sensor_voronoi[role] == neighbor, -1, self.sensor_voronoi[role])
+                individual_quality = exp(-(dist**2)/(2*self.smoke_variance**2))
+                individual_quality = np.where(territory > -1, 0, individual_quality)
+                
+                total_quality += individual_quality
             
-            elif role == 1:
-                
-                perspective_map = (np.matmul(vec,self.perspective.transpose())/np.linalg.norm(vec) - np.cos(self.alpha))/(1 - np.cos(self.alpha))
-                perspective_map = np.where(perspective_map > 0, perspective_map, 0)
-                quality_map = self.sensor_voronoi[role]*perspective_map
-                self.sensor_qualities[role] = np.sum(quality_map)
-                self.sensor_footprint[role] = quality_map
+        return total_quality
         
     def ComputeEventDensity(self, target):
         x, y = np.mgrid[0:self.map_size[0]:self.grid_size[0], 0:self.map_size[1]:self.grid_size[1]]
