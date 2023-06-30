@@ -16,8 +16,11 @@ import itertools
 
 class PTZCamera():
     def __init__(self, map_size, grid_size, general_properties, camera_properties=None, 
-                 manipulator_properties=None, smoke_detector_properties=None):
+                 manipulator_properties=None, smoke_detector_properties=None, K_p=1, K_v=1):
 
+        self.K_p = K_p
+        self.K_v = K_v
+        
         # Setting up environment parameters
         self.total_agents       = rospy.get_param('/total_agents', 1)
         self.total_sensors      = rospy.get_param('/total_sensors', 2)
@@ -30,7 +33,7 @@ class PTZCamera():
         self.id                 = general_properties['id']
         self.pos                = general_properties['position']
         self.valid_sensors      = general_properties['valid_sensor']
-        self.sensor_qualities   = [0 for i in range(self.total_sensors)]
+        self.sensor_qualities   = {}
 
         
         if self.valid_sensors['camera']:
@@ -65,7 +68,8 @@ class PTZCamera():
         
         for sensor in self.valid_sensors.keys():
             self.sensor_graph[sensor]   = []
-            self.sensor_voronoi[sensor] = np.zeros(self.size)      
+            self.sensor_voronoi[sensor] = np.zeros(self.size)   
+            self.sensor_qualities[sensor] = {}   
             self.role[sensor]           = self.valid_sensors[sensor]
             
         self.RosInit()
@@ -212,6 +216,8 @@ class PTZCamera():
             self.event_density      = self.event_density_buffer.copy()                        
             self.role               = self.role_buffer
             
+            self.sensor_qualities.clear()
+            
             for role in list(self.valid_sensors.keys).extend([-1]):
                 self.sensor_voronoi[role] = np.zeros(self.size)
                 self.sensor_graph[role] = self.ComputeNeighbors(role=role)
@@ -223,21 +229,16 @@ class PTZCamera():
             self.PublishInfo()
 
             """TODO
-            1. Finish perspective control signal
-            2. Finish update position and perspective
+            1. Finish perspective control signal (V)
+            2. Finish update position and perspective (V)
             3. Compute score of agent's different sensor to publish
-            4. Compute cooperative score of each sensor to other agents
+            4. Compute cooperative score of each sensor to other agents (V)
             """
             
-    def UpdatePosition(self):
-        u1 = np.array([0., 0.])
-        for role in range(self.total_sensors):
-            u1 += self.role[role]*(self.loc_centroid[role]*self.grid_size - self.pos)
-
-        u2 = self.loc_centroid[-1]*self.grid_size - self.pos
-        self.positional_force = self.Kp*(self.sigma*u1 + (1 - self.sigma)*u2)
-
-        self.pos += self.positional_force
+    def UpdatePosition(self, u_p):
+        
+        self.pos += self.K_p * u_p
+        
         if self.pos[0] < 0:
             self.pos[0] = 0
         if self.pos[1] < 0:
@@ -245,12 +246,9 @@ class PTZCamera():
             
         return
     
-    def UpdatePerspective(self):
-        self.perspective_force = self.role[1]*((self.per_centroid[1]*self.grid_size - self.pos)\
-                                    /np.linalg.norm(self.per_centroid[1]*self.grid_size - self.pos)\
-                                        - self.perspective)
+    def UpdatePerspective(self, u_v):
         
-        self.perspective += self.Kv*self.perspective_force
+        self.perspective += self.K_v*self.u_v
         self.perspective /= self.Norm(self.perspective)
     
     def UpdateSensorVoronoi(self, role):
@@ -284,6 +282,22 @@ class PTZCamera():
         self.sensor_voronoi[role] = sensor_voronoi
     
     ## 2023/6/26 Checkpoint
+    
+    def ComputeUtility(self):
+        self.score = 0
+        for event in self.targets.keys():
+            for role in self.valid_sensors.keys():
+                if self.valid_sensors[role] and role in event[5]:
+                    tmp = 1 + self.ComputeSelfQuality(role=role)
+                    
+                    for k in self.valid_sensors.keys():
+                        if k in event[5] and k != role:
+                            tmp *= 1 + self.ComputeCooperateQuality(coop_role = role, role=k)
+                    
+                    tmp *= self.event_density[event]
+                    self.score += np.sum(tmp)
+        
+    # Change to new version of gradient with product rule         
     def ComputeControlSignal(self):
         u_x = 0
         u_y = 0
@@ -295,17 +309,47 @@ class PTZCamera():
                     
                     for k in self.valid_sensors.keys():
                         if k in event[5] and k != role:
-                            tmp_x *= 1 + np.where(self.ComputeSensorQuality(k))
-                            tmp_y *= 1 + self.ComputeSensorQuality(k)
+                            coop_quality = self.ComputeCooperateQuality(coop_role = role, role=k)
+                            tmp_x *= 1 + coop_quality
+                            tmp_y *= 1 + coop_quality
                             
-                    tmp_x *= self.event_density[event]
-                    tmp_y *= self.event_density[event]
-                    
-                    u_x += np.sum(tmp_x)
-                    u_y += np.sum(tmp_y)
+                tmp_x_1 = tmp_x
+                tmp_y_1 = tmp_y
+                
+                for i in self.valid_sensors.keys():
+                    if self.valid_sensors[i] and i != role:
+                        tmp_x = self.ComputeGradient(i, 'x')*(1 + self.ComputeSelfQuality(role=role))
+                        tmp_y = self.ComputeGradient(i, 'y')*(1 + self.ComputeSelfQuality(role=role))
+                        
+                        for k in self.valid_sensors.keys():
+                            if k in event[5] and k != i and k != role:
+                                coop_quality = self.ComputeCooperateQuality(coop_role = role, role=k)
+                                tmp_x *= 1 + coop_quality
+                                tmp_y *= 1 + coop_quality
+                
+                tmp_x_1 += tmp_x
+                tmp_y_1 += tmp_y
+                                
+                tmp_x_1 *= self.event_density[event]
+                tmp_y_1 *= self.event_density[event]
         
-        return np.array([u_x, u_y])
+                u_x += np.sum(tmp_x_1)
+                u_y += np.sum(tmp_y_1)
                     
+        u_v = np.array([0,0])
+        x_coords, y_coords = np.meshgrid(np.arange(self.size[0]), np.arange(self.size[1]), indexing='ij')
+        pos_self = self.pos
+        grid_size = self.grid_size
+        vec = np.dstack((x_coords, y_coords))/grid_size - pos_self
+
+        for event in self.targets.keys():
+            if self.valid_sensors['camera'] and 'camera' in event[5]:
+                dist = np.sqrt((pos_self[0]/grid_size[0] - x_coords)**2 + (pos_self[1]/grid_size[1] - y_coords)**2)
+                tmp_v = vec/(dist*(1-cos(self.angle_of_view)))
+            
+            u_v += np.sum(tmp_v)
+        return np.array([u_x, u_y]), u_v
+              
     def ComputeGradient(self, role, type):
         x_coords, y_coords = np.meshgrid(np.arange(self.size[0]), np.arange(self.size[1]), indexing='ij')
         pos_self = self.pos
@@ -314,55 +358,126 @@ class PTZCamera():
         if role == "camera":
             dist = np.sqrt((pos_self[0]/grid_size[0] - x_coords)**2 + (pos_self[1]/grid_size[1] - y_coords)**2)-self.camera_range
             gradient = (-dist*exp(-(dist**2)/(2*(self.camera_variance**2)))/(self.camera_variance**2))
+            gradient = np.where(self.sensor_voronoi[role] == self.id, 0, gradient)
             
         elif role == "manipulator":
             dist = self.operation_range - np.sqrt((pos_self[0]/grid_size[0] - x_coords)**2 + (pos_self[1]/grid_size[1] - y_coords)**2)
             gradient = -(2*self.approx_param*exp(-2*self.approx_param*dist))/((1+exp(-2*self.approx_param*dist))**2)
-        
+            gradient = np.where(self.sensor_voronoi[role] == self.id, 0, gradient)
+            
         elif role == "smoke detector":
             dist = np.sqrt((pos_self[0]/grid_size[0] - x_coords)**2 + (pos_self[1]/grid_size[1] - y_coords)**2)
             gradient = -dist*exp(-(dist**2)/(2*(self.smoke_variance**2)))/(self.smoke_variance**2)
+            gradient = np.where(self.sensor_voronoi[role] == self.id, 0, gradient)
             
         gradient = gradient * 2 * (pos_self[0] - x_coords) if type == 'x' else gradient * 2 * (pos_self[1] - y_coords) 
         
         return gradient
     
-    ## 2023/6/27 Checkpoint
-    def ComputeSensorQuality(self, role):
+    def ComputeSelfQuality(self, role):
         x_coords, y_coords = np.meshgrid(np.arange(self.size[0]), np.arange(self.size[1]), indexing='ij')
         pos_self = self.pos
         grid_size = self.grid_size
-        vec = np.dstack((x_coords, y_coords))/grid_size - pos_self
+
+        self_territory = np.where(self.sensor_voronoi[role] == self.id, -1, self.sensor_voronoi[role])
+        
+        if role == 'manipulator':
+            dist = self.operation_range - np.sqrt((pos_self[0]/grid_size[0] - x_coords)**2 + (pos_self[1]/grid_size[1] - y_coords)**2)
+            self_quality = 1/(1+exp(-2*self.approx_param*(role)))
+            self_quality = np.where(self_territory > -1, 0, self_quality)
+        
+        elif role == 'smoke detector':
+            dist = np.sqrt((pos_self[0]/grid_size[0] - x_coords)**2 + (pos_self[1]/grid_size[1] - y_coords)**2)
+            self_quality = exp(-(dist**2)/(2*self.smoke_variance**2))
+            self_quality = np.where(self_territory > -1, 0, self_quality)
+            
+        elif role == 'camera':
+            dist = np.sqrt((pos_self[0]/grid_size[0] - x_coords)**2 + (pos_self[1]/grid_size[1] - y_coords)**2)-self.camera_range
+            self_quality = exp(-(dist**2)/(2*self.camera_variance**2))
+            self_quality = np.where(self_territory > -1, 0, self_quality)
+        
+        return self_quality
+    
+    def ComputeCooperateQuality(self, coop_role, role):
+        x_coords, y_coords = np.meshgrid(np.arange(self.size[0]), np.arange(self.size[1]), indexing='ij')
+        pos_self = self.pos
+        grid_size = self.grid_size
+        # vec = np.dstack((x_coords, y_coords))/grid_size - pos_self
 
         if role == 'camera':
+            
             dist = np.sqrt((pos_self[0]/grid_size[0] - x_coords)**2 + (pos_self[1]/grid_size[1] - y_coords)**2)-self.camera_range
+            
             total_quality = np.zeros(self.size)
-            for neighbor in self.sensor_graph[role].keys():
+            for neighbor in list(self.sensor_graph[role].keys())+[self.id]:
                 territory = np.where(self.sensor_voronoi[role] == neighbor, -1, self.sensor_voronoi[role])
                 individual_quality = exp(-(dist**2)/(2*self.camera_variance**2))
                 individual_quality = np.where(territory > -1, 0, individual_quality)
                 
                 total_quality += individual_quality
+                                
+                self_territory = np.where(self.sensor_voronoi[coop_role] == self.id, -1, self.sensor_voronoi[coop_role])
+
+                if coop_role == 'manipulator':
+                    coop_dist = self.operation_range - np.sqrt((pos_self[0]/grid_size[0] - x_coords)**2 + (pos_self[1]/grid_size[1] - y_coords)**2)
+                    self_quality = 1/(1+exp(-2*self.approx_param*(coop_dist)))
+                    self_quality = np.where(self_territory > -1, 0, self_quality)
+                    self.sensor_qualities[coop_role][neighbor] += np.sum(individual_quality*self_quality)
+                
+                elif coop_role == 'smoke detector':
+                    coop_dist = np.sqrt((pos_self[0]/grid_size[0] - x_coords)**2 + (pos_self[1]/grid_size[1] - y_coords)**2)
+                    self_quality = exp(-(dist**2)/(2*self.smoke_variance**2))
+                    self_quality = np.where(self_territory > -1, 0, self_quality)
+                    self.sensor_qualities[coop_role][neighbor] += np.sum(individual_quality*self_quality)
                 
         elif role == 'manipulator':
             dist = self.operation_range - np.sqrt((pos_self[0]/grid_size[0] - x_coords)**2 + (pos_self[1]/grid_size[1] - y_coords)**2)
             total_quality = np.zeros(self.size)
-            for neighbor in self.sensor_graph[role].keys():
+            for neighbor in list(self.sensor_graph[role].keys())+[self.id]:
                 territory = np.where(self.sensor_voronoi[role] == neighbor, -1, self.sensor_voronoi[role])
                 individual_quality = 1/(1+exp(-2*self.approx_param*(dist)))
                 individual_quality = np.where(territory > -1, 0, individual_quality)
                 
                 total_quality += individual_quality
+                                
+                self_territory = np.where(self.sensor_voronoi[coop_role] == self.id, -1, self.sensor_voronoi[coop_role])
+
+                if coop_role == 'camera':
+                    coop_dist = np.sqrt((pos_self[0]/grid_size[0] - x_coords)**2 + (pos_self[1]/grid_size[1] - y_coords)**2)-self.camera_range
+                    self_quality = exp(-(dist**2)/(2*self.camera_variance**2))
+                    self_quality = np.where(self_territory > -1, 0, self_quality)
+                    self.sensor_qualities[coop_role][neighbor] += np.sum(individual_quality*self_quality)
+                
+                elif coop_role == 'smoke detector':
+                    coop_dist = np.sqrt((pos_self[0]/grid_size[0] - x_coords)**2 + (pos_self[1]/grid_size[1] - y_coords)**2)
+                    self_quality = exp(-(dist**2)/(2*self.smoke_variance**2))
+                    self_quality = np.where(self_territory > -1, 0, self_quality)
+                    self.sensor_qualities[coop_role][neighbor] += np.sum(individual_quality*self_quality)
+                
                    
         elif role == 'smoke detector':
             dist = np.sqrt((pos_self[0]/grid_size[0] - x_coords)**2 + (pos_self[1]/grid_size[1] - y_coords)**2)
             total_quality = np.zeros(self.size)
-            for neighbor in self.sensor_graph[role].keys():
+            for neighbor in list(self.sensor_graph[role].keys())+[self.id]:
                 territory = np.where(self.sensor_voronoi[role] == neighbor, -1, self.sensor_voronoi[role])
                 individual_quality = exp(-(dist**2)/(2*self.smoke_variance**2))
                 individual_quality = np.where(territory > -1, 0, individual_quality)
                 
                 total_quality += individual_quality
+                                
+                self_territory = np.where(self.sensor_voronoi[coop_role] == self.id, -1, self.sensor_voronoi[coop_role])
+
+                if coop_role == 'manipulator':
+                    coop_dist = self.operation_range - np.sqrt((pos_self[0]/grid_size[0] - x_coords)**2 + (pos_self[1]/grid_size[1] - y_coords)**2)
+                    self_quality = 1/(1+exp(-2*self.approx_param*(coop_dist)))
+                    self_quality = np.where(self_territory > -1, 0, self_quality)
+                    self.sensor_qualities[coop_role][neighbor] += np.sum(individual_quality*self_quality)
+                
+                elif coop_role == 'camera':
+                    coop_dist = np.sqrt((pos_self[0]/grid_size[0] - x_coords)**2 + (pos_self[1]/grid_size[1] - y_coords)**2)-self.camera_range
+                    self_quality = exp(-(dist**2)/(2*self.camera_variance**2))
+                    self_quality = np.where(self_territory > -1, 0, self_quality)
+                    self.sensor_qualities[coop_role][neighbor] += np.sum(individual_quality*self_quality)         
             
         return total_quality
         
@@ -374,23 +489,8 @@ class PTZCamera():
         covariance = np.diag(sigma**2)
         z = multivariate_normal.pdf(xy, mean=mu, cov=covariance)
         event = z.reshape(x.shape)
-        
-        # combinations = [list(itertools.combinations(range(len(targets)), i)) for i in range(1, len(targets)+1)]
-        # union = np.zeros(event[0].shape)
-
-        # for c in combinations:
-        
-        #     for pair in c:
-
-        #         inter = np.ones(event[0].shape)
-
-        #         for i in pair:
-
-        #             inter = np.multiply(inter, event[i][:,:])
-
-        #         union += ((-1)**(len(pair) + 1))*inter
             
-        return event#union
+        return event
 
     def Norm(self, arr):
 
@@ -442,9 +542,9 @@ if __name__ == "__main__":
         camera_variance     = rospy.get_param("~camera_variance", default=1)
         
         camera_info         = { 'perspective'    : init_perspective,
-                            'angle of view'  : angle_of_view,
-                            'desired range'  : range_limit,
-                            'variance'       : camera_variance}
+                                'angle of view'  : angle_of_view,
+                                'desired range'  : range_limit,
+                                'variance'       : camera_variance}
     else:
         caemra_info = None
     
@@ -454,7 +554,7 @@ if __name__ == "__main__":
         approx_param        = rospy.get_param("~approx_param", default=20)
         
         manipulator_info    = { 'arm_length'     : arm_length,
-                            'k'              : approx_param}
+                                'k'              : approx_param}
     else:
         manipulator_info = None
 
