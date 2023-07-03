@@ -355,8 +355,10 @@ if __name__=="__main__":
     
     total_agents = int(rospy.get_param('/total_agents', '1'))
 
-    agent = RoleManager(id = int(id), total_agents= total_agents)
-    agent.Run(type = "Consensus")    
+    #agent = RoleManager(id = int(id), total_agents= total_agents)
+    #agent.Run(type = "Consensus")
+    
+    #camera = rospy.get_param()    
         
             
                                                     

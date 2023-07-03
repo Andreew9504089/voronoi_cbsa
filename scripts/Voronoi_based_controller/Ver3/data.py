@@ -41,7 +41,7 @@ class DataCenter():
         self.pub_target2control      = rospy.Publisher("local/target", TargetInfoArray, queue_size=10)
         self.pub_neighbor2control    = rospy.Publisher("local/neighbor_info", NeighborInfoArray, queue_size=10)
         self.pub_exchange2neighbor   = rospy.Publisher("global/exchange_data", ExchangeData, queue_size=10)
-        self.pub_exchange2role       = rospy.Publisher("local/received_exchange_data", ExchangeDataArray, queue_size=10)
+        #self.pub_exchange2role       = rospy.Publisher("local/received_exchange_data", ExchangeDataArray, queue_size=10)
     
     def NeighborCallback(self, msg):
         # Retrieve the other agents' information who are within the communication range
@@ -79,10 +79,10 @@ class DataCenter():
         for key in del_list:
             del self.neighbor_exchange_data[key]
 
-    def PubExchange2Role(self):
-        msg = ExchangeDataArray()
-        msg.data = [item[0] for item in self.neighbor_exchange_data.values()]
-        self.pub_exchange2role.publish(msg)
+    # def PubExchange2Role(self):
+    #     msg = ExchangeDataArray()
+    #     msg.data = [item[0] for item in self.neighbor_exchange_data.values()]
+    #     self.pub_exchange2role.publish(msg)
 
     def PubNeighbor2Control(self):
         msg = NeighborInfoArray()
