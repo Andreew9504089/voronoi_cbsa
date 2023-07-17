@@ -216,7 +216,7 @@ class PTZCamera():
                 if idx_map[self.id] in simplex:
                     for id in simplex:
                         ids.append(id)
-
+        
             neighbors = []
             for member in valid_neighbor:
                 if idx_map[member] in ids:
