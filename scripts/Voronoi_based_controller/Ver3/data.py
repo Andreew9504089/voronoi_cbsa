@@ -39,7 +39,7 @@ class DataCenter():
         rospy.Subscriber("local/position", Point, self.PositionCallback)
 
         self.pub_target2control      = rospy.Publisher("local/target", TargetInfoArray, queue_size=10)
-        self.pub_neighbor2control    = rospy.Publisher("local/neighbor_info", NeighborInfoArray, queue_size=10)
+        self.pub_neighbor2control    = rospy.Publisher("local/neighbor_info", ExchangeDataArray, queue_size=10)
         self.pub_exchange2neighbor   = rospy.Publisher("global/exchange_data", ExchangeData, queue_size=10)
         #self.pub_exchange2role       = rospy.Publisher("local/received_exchange_data", ExchangeDataArray, queue_size=10)
     
@@ -79,23 +79,15 @@ class DataCenter():
         for key in del_list:
             del self.neighbor_exchange_data[key]
 
-    # def PubExchange2Role(self):
-    #     msg = ExchangeDataArray()
-    #     msg.data = [item[0] for item in self.neighbor_exchange_data.values()]
-    #     self.pub_exchange2role.publish(msg)
-
     def PubNeighbor2Control(self):
-        msg = NeighborInfoArray()
+        msg = ExchangeDataArray()
         data = []
 
         for key, item in self.neighbor_exchange_data.items():
-            info = NeighborInfo()
-            info.id = key
-            info.position = item[0].position
-            info.role = item[0].role
+            info = item[0]
             data.append(info)
 
-        msg.neighbors = data
+        msg.data = data
         self.pub_neighbor2control.publish(msg)
 
     def Run(self):
@@ -113,7 +105,6 @@ class DataCenter():
             if self.neighbor_init:
                 self.CheckAge()
                 self.PubNeighbor2Control()
-                self.PubExchange2Role()
             
             if self.global_voronoi_init:
                 self.pub_global_voronoi.publish(self.global_voronoi)

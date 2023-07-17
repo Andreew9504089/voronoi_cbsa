@@ -44,7 +44,7 @@ class Visualize2D():
         self.FoV_init = False
         self.sub_voronoi_init = False
         self.global_voronoi_init = False
-        self.target_received = False  
+        self.target_received = False 
 
         color_pool = [(255, 0, 0), (255, 128, 0), (255,255,0), (0,255,0), (0,255,255), (0,0,255), (178,102,255), (255,0,255)]
         for i in range(self.total_agents):

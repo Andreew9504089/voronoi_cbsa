@@ -4,6 +4,7 @@
     <arg name="id"              default="0"     /> 
     <arg name="position_x"      default="0"     />
     <arg name="position_y"      default="0"     />
+    <arg name="max_speed"       default="1"     />
     <arg name="camera"          default="0"     />
     <arg name="manipulator"     default="0"     />
     <arg name="smoke_detector"  default="0"     />
@@ -20,7 +21,7 @@
     <arg name="approx_param"    default="20"    />
 
     <!-- Agent's Smoke Detector Settings -->
-    <arg name="smoke_variace"   default="1"     />
+    <arg name="smoke_variance"   default="1"     />
 
     <group ns="agent_$(arg id)">
         <!-- <node name="RoleManager" pkg="voronoi_cbsa" type="role.py" output="screen">
@@ -37,9 +38,10 @@
             <param name="id"                type="int"      value= "$(arg id)"              />
             <param name="pos_x"             type="double"   value= "$(arg position_x)"      />
             <param name="pos_y"             type="double"   value= "$(arg position_y)"      />
+            <param name="max_speed"         type="double"   value= "$(arg max_speed)"       />
             <param name="camera"            type="double"   value="$(arg camera)"           />
             <param name="manipulator"       type="double"   value="$(arg manipulator)"      />
-            <param name="smoke_detector"    type="double"   value="$(arg camera_variance)"  />
+            <param name="smoke_detector"    type="double"   value="$(arg smoke_detector)"   />
             <param name="per_x"             type="double"   value= "$(arg perspective_x)"   />
             <param name="per_y"             type="double"   value= "$(arg perspective_y)"   />
             <param name="angle_of_view"     type="double"   value= "$(arg angle_of_view)"   />
@@ -47,7 +49,7 @@
             <param name="camera_variance"   type="double"   value="$(arg camera_variance)"  />
             <param name="arm_length"        type="double"   value="$(arg arm_length)"       />
             <param name="approx_param"      type="double"   value="$(arg approx_param)"     />
-            <param name="smoke_variance"   type="double"   value="$(arg smoke_variance)" />
+            <param name="smoke_variance"    type="double"   value="$(arg smoke_variance)"   />
         </node>
     </group>
 </launch>

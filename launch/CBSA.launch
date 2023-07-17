@@ -1,163 +1,371 @@
 <launch>
-    <rosparam param="/total_agents"> 6 </rosparam>
-    <rosparam param="/total_sensors"> 2 </rosparam>
+    <rosparam param="/total_agents"> 8 </rosparam>
     <rosparam param="/grid_size"> 0.1 </rosparam>
     <rosparam param="/map_width"> 24 </rosparam>
     <rosparam param="/map_height"> 24 </rosparam>
     <rosparam param="/test"> 0 </rosparam> <!-- 0: False 1: True-->
 
-    <node name="Visualizer" pkg="voronoi_cbsa" type="visualize.py" output="screen" />
+    <node name="Visualizer" pkg="voronoi_cbsa" type="plot.py" output="screen" />
     <node name="GroundControlStation" pkg="voronoi_cbsa" type="Ground.py" output="screen" />
 
-    <include file="$(find voronoi_cbsa)/launch/spawn_agent.launch" >
+    <!-- <include file="$(find voronoi_cbsa)/launch/spawn_agent.launch" >
         <arg name="id"              value="0"     /> 
-        <arg name="position_x"      value="3"     />
-        <arg name="position_y"      value="3"     />
-        <arg name="perspective_x"   value="1"     />
-        <arg name="perspective_y"   value="1"     />
-        <arg name="angle_of_view"   value="10"    />
+        <arg name="position_x"      value="4"     />
+        <arg name="position_y"      value="2"     />
+        <arg name="camera"          value="1"     />
+        <arg name="manipulator"     value="1"     />
+        <arg name="smoke_detector"  value="1"     />
+
+        <arg name="perspective_x"   value="-1"     />
+        <arg name="perspective_y"   value="-1"     />
+        <arg name="angle_of_view"   value="15"    />
         <arg name="desired_range"   value="3"     />
-        <arg name="lambda"          value="2"     />
-        <arg name="R"               value="0"     />
-        <arg name="G"               value="0"     />
-        <arg name="B"               value="0"     />
-        <arg name="max_speed"       value="3"     />
-    </include>
+        <arg name="camera_variance" value="5"     />
+
+        <arg name="arm_length"      value="1"     />
+        <arg name="approx_param"    value="10"     />
+        
+        <arg name="smoke_variance"  value="8"     />
+
+        <arg name="max_speed"       value="1"     />
+    </include> -->
 
     <include file="$(find voronoi_cbsa)/launch/spawn_agent.launch" >
         <arg name="id"              value="1"     /> 
         <arg name="position_x"      value="1"     />
-        <arg name="position_y"      value="2"     />
-        <arg name="perspective_x"   value="1"     />
+        <arg name="position_y"      value="5"     />
+        <arg name="camera"          value="1"     />
+        <arg name="manipulator"     value="0"     />
+        <arg name="smoke_detector"  value="1"     />
+
+        <arg name="perspective_x"   value="5"     />
         <arg name="perspective_y"   value="1"     />
         <arg name="angle_of_view"   value="10"    />
         <arg name="desired_range"   value="3"     />
-        <arg name="lambda"          value="2"     />
-        <arg name="R"               value="0"     />
-        <arg name="G"               value="0"     />
-        <arg name="B"               value="0"     />
-        <arg name="max_speed"       value="3"     />
+        <arg name="camera_variance" value="3"     />
+
+        <arg name="arm_length"      value="1"     />
+        <arg name="approx_param"    value="5"    />
+        
+        <arg name="smoke_variance"  value="8"     />
+
+        <arg name="max_speed"       value="1"     /> 
     </include>
 
     <include file="$(find voronoi_cbsa)/launch/spawn_agent.launch" >
         <arg name="id"              value="2"     /> 
-        <arg name="position_x"      value="1"     />
-        <arg name="position_y"      value="3"     />
+        <arg name="position_x"      value="18"     />
+        <arg name="position_y"      value="18"     />
+        <arg name="camera"          value="1"     />
+        <arg name="manipulator"     value="0"     />
+        <arg name="smoke_detector"  value="0"     />
+
+        <arg name="perspective_x"   value="-5"     />
+        <arg name="perspective_y"   value="1"     />
+        <arg name="angle_of_view"   value="10"    />
+        <arg name="desired_range"   value="3"     />
+        <arg name="camera_variance" value="3"     />
+
+        <arg name="arm_length"      value="1"     />
+        <arg name="approx_param"    value="5"    />
+        
+        <arg name="smoke_variance"  value="8"     />
+
+        <arg name="max_speed"       value="1"     /> 
+    </include>
+
+    <include file="$(find voronoi_cbsa)/launch/spawn_agent.launch" >
+        <arg name="id"              value="3"     /> 
+        <arg name="position_x"      value="17"     />
+        <arg name="position_y"      value="19"     />
+        <arg name="camera"          value="1"     />
+        <arg name="manipulator"     value="0"     />
+        <arg name="smoke_detector"  value="0"     />
+
+        <arg name="perspective_x"   value="-5"     />
+        <arg name="perspective_y"   value="0"     />
+        <arg name="angle_of_view"   value="10"    />
+        <arg name="desired_range"   value="3"     />
+        <arg name="camera_variance" value="3"     />
+
+        <arg name="arm_length"      value="1"     />
+        <arg name="approx_param"    value="10"    />
+        
+        <arg name="smoke_variance"  value="8"     />
+
+        <arg name="max_speed"       value="1"     /> 
+    </include>
+
+    <include file="$(find voronoi_cbsa)/launch/spawn_agent.launch" >
+        <arg name="id"              value="4"     /> 
+        <arg name="position_x"      value="2"     />
+        <arg name="position_y"      value="0"     />
+        <arg name="camera"          value="1"     />
+        <arg name="manipulator"     value="1"     />
+        <arg name="smoke_detector"  value="0"     />
+
         <arg name="perspective_x"   value="1"     />
         <arg name="perspective_y"   value="1"     />
         <arg name="angle_of_view"   value="10"    />
         <arg name="desired_range"   value="3"     />
-        <arg name="lambda"          value="2"     />
-        <arg name="R"               value="0"     />
-        <arg name="G"               value="0"     />
-        <arg name="B"               value="0"     />
-        <arg name="max_speed"       value="3"     />
+        <arg name="camera_variance" value="3"     />
+
+        <arg name="arm_length"      value="1"     />
+        <arg name="approx_param"    value="10"    />
+        
+        <arg name="smoke_variance"  value="8"     />
+
+        <arg name="max_speed"       value="1"     /> 
+    </include>
+
+    <!-- <include file="$(find voronoi_cbsa)/launch/spawn_agent.launch" >
+        <arg name="id"              value="5"     /> 
+        <arg name="position_x"      value="3"     />
+        <arg name="position_y"      value="1"     />
+        <arg name="camera"          value="1"     />
+        <arg name="manipulator"     value="0"     />
+        <arg name="smoke_detector"  value="0"     />
+
+        <arg name="perspective_x"   value="1"     />
+        <arg name="perspective_y"   value="1"     />
+        <arg name="angle_of_view"   value="10"    />
+        <arg name="desired_range"   value="3"     />
+        <arg name="camera_variance" value="5"     />
+
+        <arg name="arm_length"      value="1"     />
+        <arg name="approx_param"    value="5"    />
+        
+        <arg name="smoke_variance"  value="8"     />
+
+        <arg name="max_speed"       value="1"     /> 
+    </include>  -->
+<!-- 
+    <include file="$(find voronoi_cbsa)/launch/spawn_agent.launch" >
+        <arg name="id"              value="6"     /> 
+        <arg name="position_x"      value="1"     />
+        <arg name="position_y"      value="0"     />
+        <arg name="camera"          value="1"     />
+        <arg name="manipulator"     value="0"     />
+        <arg name="smoke_detector"  value="0"     />
+
+        <arg name="perspective_x"   value="1"     />
+        <arg name="perspective_y"   value="1"     />
+        <arg name="angle_of_view"   value="10"    />
+        <arg name="desired_range"   value="3"     />
+        <arg name="camera_variance" value="5"     />
+
+        <arg name="arm_length"      value="5"     />
+        <arg name="approx_param"    value="5"    />
+        
+        <arg name="smoke_variance"  value="8"     />
+
+        <arg name="max_speed"       value="1"     /> 
+    </include> -->
+
+    <!-- <include file="$(find voronoi_cbsa)/launch/spawn_agent.launch" >
+        <arg name="id"              value="7"     /> 
+        <arg name="position_x"      value="0"     />
+        <arg name="position_y"      value="2"     />
+        <arg name="camera"          value="0"     />
+        <arg name="manipulator"     value="1"     />
+        <arg name="smoke_detector"  value="1"     />
+
+        <arg name="perspective_x"   value="1"     />
+        <arg name="perspective_y"   value="1"     />
+        <arg name="angle_of_view"   value="10"    />
+        <arg name="desired_range"   value="3"     />
+        <arg name="camera_variance" value="5"     />
+
+        <arg name="arm_length"      value="5"     />
+        <arg name="approx_param"    value="5"    />
+        
+        <arg name="smoke_variance"  value="8"     />
+
+        <arg name="max_speed"       value="1"     /> 
+    </include> -->
+
+<!--
+        <include file="$(find voronoi_cbsa)/launch/spawn_agent.launch" >
+        <arg name="id"              value="8"     /> 
+        <arg name="position_x"      value="0"     />
+        <arg name="position_y"      value="1"     />
+        <arg name="camera"          value="1"     />
+        <arg name="manipulator"     value="0"     />
+        <arg name="smoke_detector"  value="0"     />
+
+        <arg name="perspective_x"   value="1"     />
+        <arg name="perspective_y"   value="1"     />
+        <arg name="angle_of_view"   value="10"    />
+        <arg name="desired_range"   value="3"     />
+        <arg name="camera_variance" value="2"     />
+
+        <arg name="arm_length"      value="5"     />
+        <arg name="approx_param"    value="5"    />
+        
+        <arg name="smoke_variance"  value="5"     />
+
+        <arg name="max_speed"       value="1"     /> 
+    </include> -->
+<!-- 
+    <include file="$(find voronoi_cbsa)/launch/spawn_agent.launch" >
+        <arg name="id"              value="2"     /> 
+        <arg name="position_x"      value="1"     />
+        <arg name="position_y"      value="3"     />
+        <arg name="camera"          value="1"     />
+        <arg name="manipulator"     value="1"     />
+        <arg name="smoke_detector"  value="0"     />
+
+        <arg name="perspective_x"   value="1"     />
+        <arg name="perspective_y"   value="1"     />
+        <arg name="angle_of_view"   value="10"    />
+        <arg name="desired_range"   value="3"     />
+        <arg name="camera_variance" value="2"     />
+
+        <arg name="arm_length"      value="1"     />
+        <arg name="approx_param"    value="20"    />
+        
+        <arg name="smoke_variance"  value="1"     />
     </include>
 
     <include file="$(find voronoi_cbsa)/launch/spawn_agent.launch" >
         <arg name="id"              value="3"     /> 
         <arg name="position_x"      value="1"     />
         <arg name="position_y"      value="4"     />
+        <arg name="camera"          value="1"     />
+        <arg name="manipulator"     value="1"     />
+        <arg name="smoke_detector"  value="0"     />
+
         <arg name="perspective_x"   value="1"     />
         <arg name="perspective_y"   value="1"     />
         <arg name="angle_of_view"   value="10"    />
         <arg name="desired_range"   value="3"     />
-        <arg name="lambda"          value="2"     />
-        <arg name="R"               value="0"     />
-        <arg name="G"               value="0"     />
-        <arg name="B"               value="0"     />
-        <arg name="max_speed"       value="3"     />
+        <arg name="camera_variance" value="2"     />
+
+        <arg name="arm_length"      value="1"     />
+        <arg name="approx_param"    value="20"    />
+        
+        <arg name="smoke_variance"  value="1"     />
     </include>
 
     <include file="$(find voronoi_cbsa)/launch/spawn_agent.launch" >
         <arg name="id"              value="4"     /> 
         <arg name="position_x"      value="1"     />
         <arg name="position_y"      value="5"     />
+        <arg name="camera"          value="1"     />
+        <arg name="manipulator"     value="1"     />
+        <arg name="smoke_detector"  value="0"     />
+
         <arg name="perspective_x"   value="1"     />
         <arg name="perspective_y"   value="1"     />
         <arg name="angle_of_view"   value="10"    />
         <arg name="desired_range"   value="3"     />
-        <arg name="lambda"          value="2"     />
-        <arg name="R"               value="0"     />
-        <arg name="G"               value="0"     />
-        <arg name="B"               value="0"     />
-        <arg name="max_speed"       value="3"     />
+        <arg name="camera_variance" value="2"     />
+
+        <arg name="arm_length"      value="1"     />
+        <arg name="approx_param"    value="20"    />
+        
+        <arg name="smoke_variance"  value="1"     />
     </include>
 
     <include file="$(find voronoi_cbsa)/launch/spawn_agent.launch" >
         <arg name="id"              value="5"     /> 
         <arg name="position_x"      value="2"     />
         <arg name="position_y"      value="1"     />
+        <arg name="camera"          value="1"     />
+        <arg name="manipulator"     value="1"     />
+        <arg name="smoke_detector"  value="0"     />
+
         <arg name="perspective_x"   value="1"     />
         <arg name="perspective_y"   value="1"     />
         <arg name="angle_of_view"   value="10"    />
         <arg name="desired_range"   value="3"     />
-        <arg name="lambda"          value="2"     />
-        <arg name="R"               value="0"     />
-        <arg name="G"               value="0"     />
-        <arg name="B"               value="0"     />
-        <arg name="max_speed"       value="3"     />
-    </include>
+        <arg name="camera_variance" value="2"     />
+
+        <arg name="arm_length"      value="1"     />
+        <arg name="approx_param"    value="20"    />
+        
+        <arg name="smoke_variance"  value="1"     />
+    </include> -->
 
 
     <!-- <include file="$(find voronoi_cbsa)/launch/spawn_agent.launch" >
         <arg name="id"              value="6"     /> 
         <arg name="position_x"      value="3"     />
         <arg name="position_y"      value="1"     />
+        <arg name="camera"          value="1"     />
+        <arg name="manipulator"     value="1"     />
+        <arg name="smoke_detector"  value="0"     />
+
         <arg name="perspective_x"   value="1"     />
         <arg name="perspective_y"   value="1"     />
         <arg name="angle_of_view"   value="10"    />
         <arg name="desired_range"   value="3"     />
-        <arg name="lambda"          value="2"     />
-        <arg name="R"               value="0"     />
-        <arg name="G"               value="0"     />
-        <arg name="B"               value="0"     />
-        <arg name="max_speed"       value="1.5"     />
+        <arg name="camera_variance" value="2"     />
+
+        <arg name="arm_length"      value="1"     />
+        <arg name="approx_param"    value="20"    />
+        
+        <arg name="smoke_variance"  value="1"     />
     </include>
 
     <include file="$(find voronoi_cbsa)/launch/spawn_agent.launch" >
         <arg name="id"              value="7"     /> 
         <arg name="position_x"      value="4"     />
         <arg name="position_y"      value="1"     />
+        <arg name="camera"          value="1"     />
+        <arg name="manipulator"     value="1"     />
+        <arg name="smoke_detector"  value="0"     />
+
         <arg name="perspective_x"   value="1"     />
         <arg name="perspective_y"   value="1"     />
         <arg name="angle_of_view"   value="10"    />
         <arg name="desired_range"   value="3"     />
-        <arg name="lambda"          value="2"     />
-        <arg name="R"               value="0"     />
-        <arg name="G"               value="0"     />
-        <arg name="B"               value="0"     />
-        <arg name="max_speed"       value="1.5"     />
+        <arg name="camera_variance" value="2"     />
+
+        <arg name="arm_length"      value="1"     />
+        <arg name="approx_param"    value="20"    />
+        
+        <arg name="smoke_variance"  value="1"     />
     </include>
 
     <include file="$(find voronoi_cbsa)/launch/spawn_agent.launch" >
         <arg name="id"              value="8"     /> 
         <arg name="position_x"      value="5"     />
         <arg name="position_y"      value="1"     />
+        <arg name="camera"          value="1"     />
+        <arg name="manipulator"     value="1"     />
+        <arg name="smoke_detector"  value="0"     />
+
         <arg name="perspective_x"   value="1"     />
         <arg name="perspective_y"   value="1"     />
         <arg name="angle_of_view"   value="10"    />
         <arg name="desired_range"   value="3"     />
-        <arg name="lambda"          value="2"     />
-        <arg name="R"               value="0"     />
-        <arg name="G"               value="0"     />
-        <arg name="B"               value="0"     />
-        <arg name="max_speed"       value="1.5"     />
+        <arg name="camera_variance" value="2"     />
+
+        <arg name="arm_length"      value="1"     />
+        <arg name="approx_param"    value="20"    />
+        
+        <arg name="smoke_variance"  value="1"     />
     </include> -->
 
     <!-- <include file="$(find voronoi_cbsa)/launch/spawn_agent.launch" >
         <arg name="id"              value="9"     /> 
         <arg name="position_x"      value="2"     />
         <arg name="position_y"      value="2"     />
+        <arg name="camera"          value="1"     />
+        <arg name="manipulator"     value="1"     />
+        <arg name="smoke_detector"  value="0"     />
+
         <arg name="perspective_x"   value="1"     />
         <arg name="perspective_y"   value="1"     />
         <arg name="angle_of_view"   value="10"    />
         <arg name="desired_range"   value="3"     />
-        <arg name="lambda"          value="2"     />
-        <arg name="R"               value="0"     />
-        <arg name="G"               value="0"     />
-        <arg name="B"               value="0"     />
-        <arg name="max_speed"       value="1.5"     />
+        <arg name="camera_variance" value="2"     />
+
+        <arg name="arm_length"      value="1"     />
+        <arg name="approx_param"    value="20"    />
+        
+        <arg name="smoke_variance"  value="1"     />
     </include>
 
 
@@ -165,15 +373,20 @@
         <arg name="id"              value="10"     /> 
         <arg name="position_x"      value="16"     />
         <arg name="position_y"      value="17"     />
+        <arg name="camera"          value="1"     />
+        <arg name="manipulator"     value="1"     />
+        <arg name="smoke_detector"  value="0"     />
+
         <arg name="perspective_x"   value="1"     />
         <arg name="perspective_y"   value="1"     />
         <arg name="angle_of_view"   value="10"    />
         <arg name="desired_range"   value="3"     />
-        <arg name="lambda"          value="2"     />
-        <arg name="R"               value="0"     />
-        <arg name="G"               value="0"     />
-        <arg name="B"               value="0"     />
-        <arg name="max_speed"       value="1"     />
+        <arg name="camera_variance" value="2"     />
+
+        <arg name="arm_length"      value="1"     />
+        <arg name="approx_param"    value="20"    />
+        
+        <arg name="smoke_variance"  value="1"     />
     </include>
 
 
@@ -181,60 +394,80 @@
         <arg name="id"              value="11"     /> 
         <arg name="position_x"      value="2"     />
         <arg name="position_y"      value="17"     />
+        <arg name="camera"          value="1"     />
+        <arg name="manipulator"     value="1"     />
+        <arg name="smoke_detector"  value="0"     />
+
         <arg name="perspective_x"   value="1"     />
         <arg name="perspective_y"   value="1"     />
         <arg name="angle_of_view"   value="10"    />
         <arg name="desired_range"   value="3"     />
-        <arg name="lambda"          value="2"     />
-        <arg name="R"               value="0"     />
-        <arg name="G"               value="0"     />
-        <arg name="B"               value="0"     />
-        <arg name="max_speed"       value="1"     />
+        <arg name="camera_variance" value="2"     />
+
+        <arg name="arm_length"      value="1"     />
+        <arg name="approx_param"    value="20"    />
+        
+        <arg name="smoke_variance"  value="1"     />
     </include> -->
 
     <!-- <include file="$(find voronoi_cbsa)/launch/spawn_agent.launch" >
         <arg name="id"              value="12"     /> 
         <arg name="position_x"      value="15"     />
         <arg name="position_y"      value="18"     />
+        <arg name="camera"          value="1"     />
+        <arg name="manipulator"     value="1"     />
+        <arg name="smoke_detector"  value="0"     />
+
         <arg name="perspective_x"   value="1"     />
         <arg name="perspective_y"   value="1"     />
         <arg name="angle_of_view"   value="10"    />
         <arg name="desired_range"   value="3"     />
-        <arg name="lambda"          value="2"     />
-        <arg name="R"               value="0"     />
-        <arg name="G"               value="0"     />
-        <arg name="B"               value="0"     />
-        <arg name="max_speed"       value="1"     />
+        <arg name="camera_variance" value="2"     />
+
+        <arg name="arm_length"      value="1"     />
+        <arg name="approx_param"    value="20"    />
+        
+        <arg name="smoke_variance"  value="1"     />
     </include>
 
     <include file="$(find voronoi_cbsa)/launch/spawn_agent.launch" >
         <arg name="id"              value="13"     /> 
         <arg name="position_x"      value="23"     />
         <arg name="position_y"      value="21"     />
+        <arg name="camera"          value="1"     />
+        <arg name="manipulator"     value="1"     />
+        <arg name="smoke_detector"  value="0"     />
+
         <arg name="perspective_x"   value="1"     />
         <arg name="perspective_y"   value="1"     />
         <arg name="angle_of_view"   value="10"    />
         <arg name="desired_range"   value="3"     />
-        <arg name="lambda"          value="2"     />
-        <arg name="R"               value="0"     />
-        <arg name="G"               value="0"     />
-        <arg name="B"               value="0"     />
-        <arg name="max_speed"       value="1"     />
+        <arg name="camera_variance" value="2"     />
+
+        <arg name="arm_length"      value="1"     />
+        <arg name="approx_param"    value="20"    />
+        
+        <arg name="smoke_variance"  value="1"     />
     </include>
 
     <include file="$(find voronoi_cbsa)/launch/spawn_agent.launch" >
         <arg name="id"              value="14"     /> 
         <arg name="position_x"      value="1"     />
         <arg name="position_y"      value="5"     />
+        <arg name="camera"          value="1"     />
+        <arg name="manipulator"     value="1"     />
+        <arg name="smoke_detector"  value="0"     />
+
         <arg name="perspective_x"   value="1"     />
         <arg name="perspective_y"   value="1"     />
         <arg name="angle_of_view"   value="10"    />
         <arg name="desired_range"   value="3"     />
-        <arg name="lambda"          value="2"     />
-        <arg name="R"               value="0"     />
-        <arg name="G"               value="0"     />
-        <arg name="B"               value="0"     />
-        <arg name="max_speed"       value="1"     />
+        <arg name="camera_variance" value="2"     />
+
+        <arg name="arm_length"      value="1"     />
+        <arg name="approx_param"    value="20"    />
+        
+        <arg name="smoke_variance"  value="1"     />
     </include> -->
 
 </launch>

@@ -61,7 +61,10 @@ add_message_files(
     TargetInfoArray.msg
     SensorArray.msg
     Sensor.msg
-)
+    ValidSensors.msg
+    Weight.msg
+    WeightArray.msg
+    )
 
 ## Generate services in the 'srv' folder
 # add_service_files(

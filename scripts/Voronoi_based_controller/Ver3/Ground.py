@@ -11,7 +11,6 @@ from math import cos, acos, sqrt, exp, sin
 from scipy.stats import multivariate_normal
 import itertools
 
-
 def norm(arr):
     sum = 0
     for i in range(len(arr)):
@@ -19,17 +18,18 @@ def norm(arr):
 
     return sqrt(sum)
 
-def TargetDynamics(x, y, v, res):
-    turn = np.random.randint(-30, 30)/180*np.pi
+def TargetDynamics(x, y, v):
+    spd = 0.02
+    turn = np.random.randint(-15, 15)/180*np.pi
     rot = np.array([[cos(turn), -sin(turn)],
                     [sin(turn), cos(turn)]])
     v = rot@v.reshape(2,1)
-    vx = v[0] if v[0]*res + x > 0 and v[0]*res + x < 24 else -v[0]
-    vy = v[1] if v[1]*res + y > 0 and v[1]*res + y < 24 else -v[1]
-
+    vx = v[0] if v[0]*spd + x > 0 and v[0]*spd + x < 24 else -v[0]
+    vy = v[1] if v[1]*spd + y > 0 and v[1]*spd + y < 24 else -v[1]
+    
     return (x,y), np.asarray([[0],[0]])
-    #return (np.round(float(np.clip(v[0]*res + x, 0, 24)),1), np.round(float(np.clip(v[1]*res + y, 0, 24)),1)),\
-    #            np.round(np.array([[vx],[vy]]), len(str(res).split(".")[1]))
+    #return (np.round(float(np.clip(v[0]*spd + x, 0, 24)),3), np.round(float(np.clip(v[1]*spd + y, 0, 24)),3)),\
+    #           np.round(np.array([[vx],[vy]]), len(str(spd).split(".")[1]))
 
 def RandomUnitVector():
     v = np.asarray([np.random.normal() for i in range(2)])
@@ -49,9 +49,8 @@ if __name__ == "__main__":
         else:
             return np.asarray(pos)
     
-    targets = [[random_pos((12,8)), 0.5, 10,RandomUnitVector(), ['camera', 'smoke_detector']],
-                [random_pos((20,18)), 0.5, 10,RandomUnitVector(), ['camera', 'manipulator']],
-                [random_pos((4,18)), 0.5, 10,RandomUnitVector()], ['camera', 'smoke_detector', 'manipulator']]
+    targets = [[random_pos((18,5)), 1, 10,RandomUnitVector(), ['camera', 'manipulator']],
+               [random_pos((5,18)), 1, 10,RandomUnitVector(), ['camera', 'smoke_detector']]]
     
     while not rospy.is_shutdown():
             
@@ -59,7 +58,7 @@ if __name__ == "__main__":
         tmp = []
 
         for i in range(len(targets)):
-            pos, vel = TargetDynamics(targets[i][0][0], targets[i][0][1], targets[i][3], grid_size)
+            pos, vel = TargetDynamics(targets[i][0][0], targets[i][0][1], targets[i][3])
             targets[i][0] = pos
             targets[i][3] = vel
 
