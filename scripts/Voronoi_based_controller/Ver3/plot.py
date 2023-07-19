@@ -43,7 +43,7 @@ class Visualize2D():
         self.plt_utl                = []
         self.plt_time               = []
         self.target_received        = False  
-        self.plot_role              = "camera"      # camera, smoke_detector, manipulator, all
+        self.plot_role              = "All"      # camera, smoke_detector, manipulator, all
         self.plot_type              = "voronoi"     # voronoi,  footprint
         self.plot_link              = "cooepration" # cooperation, coordination, communication
         self.color                  = {}
@@ -429,9 +429,12 @@ class Visualize2D():
         
         plt.draw()  
         plt.pause(0.01)  
+    
+    #def plot_graph(self):
+        
         
     def End(self):
-        imageio.mimsave(self.prefix+"identical_agent_target_assignment_6s_6"+'.gif', self.images)
+        imageio.mimsave(self.prefix+"coop-3"+'.gif', self.images)
      
 if __name__=="__main__":
     rospy.init_node('visualizer', anonymous=False, disable_signals=True)
@@ -458,4 +461,4 @@ if __name__=="__main__":
             plt_dict[str(id)+"'s score"] = visualizer.agent_score_plt[id]
         
     df = pd.DataFrame.from_dict(plt_dict) 
-    df.to_csv (r'~/result.csv', index=False, header=True)
+    df.to_csv (r'~/research_ws/src/voronoi_cbsa/result/coop-3.csv', index=False, header=True)

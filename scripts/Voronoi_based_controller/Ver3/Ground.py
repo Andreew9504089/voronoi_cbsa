@@ -49,8 +49,7 @@ if __name__ == "__main__":
         else:
             return np.asarray(pos)
     
-    targets = [[random_pos((18,5)), 1, 10,RandomUnitVector(), ['camera', 'manipulator']],
-               [random_pos((5,18)), 1, 10,RandomUnitVector(), ['camera', 'smoke_detector']]]
+    targets = [[random_pos((12,12)), 2, 10,RandomUnitVector(), ['camera', 'smoke_detector']]]
     
     while not rospy.is_shutdown():
             
