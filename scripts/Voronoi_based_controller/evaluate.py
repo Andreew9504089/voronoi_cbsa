@@ -114,7 +114,7 @@ class Evaluator:
 if __name__ == "__main__":
     eval = Evaluator()
     
-    trial_id = '8'
+    trial_id = '7'
     paths = {'coop'     : "/home/andrew/research_ws/src/voronoi_cbsa/result/"+trial_id+"/coop/", 
              'non-coop' : "/home/andrew/research_ws/src/voronoi_cbsa/result/"+trial_id+"/non-coop/"}
 
