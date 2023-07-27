@@ -7,25 +7,29 @@ from sensor_msgs.msg import Image
 from cv_bridge import CvBridge
 
 import numpy as np
+import pandas as pd
 from time import time, sleep
 from scipy.spatial import Delaunay
 import matplotlib.pyplot as plt
 from scipy.stats import multivariate_normal
 import itertools
 import math
+import _thread
+
 
 class PTZCamera():
-    def __init__(self, map_size, grid_size, general_properties, camera_properties=None, 
+    def __init__(self, map_size, grid_size, general_properties,
+                 coop, balance, strength, camera_properties=None, 
                  manipulator_properties=None, smoke_detector_properties=None, K_p=0.8, K_v=0.5, step = 0.1):
 
         self.K_p            = K_p
         self.K_v            = K_v
         self.step           = step
-        self.cooperation    = True 
-        self.sensor_balance = True
-        self.w_coop         = 100000
-        self.safe_distance   = 1
-        self.avoid_weight   = 0.4
+        self.cooperation    = coop 
+        self.sensor_balance = balance
+        self.w_coop         = strength
+        self.safe_distance  = 1
+        self.avoid_weight   = 0.05
         
         # Setting up environment parameters
         self.total_agents       = rospy.get_param('/total_agents', 1)
@@ -38,7 +42,7 @@ class PTZCamera():
         self.id                 = general_properties['id']
         self.pos                = general_properties['position']
         self.valid_sensors      = general_properties['valid_sensor']
-        self.max_speed          = 1#general_properties['max_speed']
+        self.max_speed          = general_properties['max_speed']
         self.sensor_qualities   = {}
 
         if self.valid_sensors['camera']:
@@ -123,6 +127,7 @@ class PTZCamera():
             pos     = np.array([pos_x, pos_y])
             role    = {}
             weights = {}
+            sensor_scores = {}
             
             for sensor in neighbor.role.sensors:
                 role[sensor.type] = sensor.score
@@ -132,11 +137,17 @@ class PTZCamera():
                 
             for weight in neighbor.weights.weights:
                 weights[weight.type][weight.event_id] = weight.score
-                
+            
+            for score in neighbor.sensor_scores.weights:
+                sensor_scores[score.type] = {}
+            
+            for score in neighbor.sensor_scores.weights:
+                sensor_scores[score.type][score.event_id] = score.score
+                    
             self.neighbors_buffer[neighbor.id] = {"position":   pos, "role": role, "operation_range": neighbor.operation_range,
                                                   "approx_param": neighbor.approx_param, "smoke_variance": neighbor.smoke_variance,
                                                   "camera_range": neighbor.camera_range, "angle_of_view": neighbor.angle_of_view,
-                                                  "camera_variance": neighbor.camera_variance, "weights": weights}
+                                                  "camera_variance": neighbor.camera_variance, "weights": weights, "sensor_scores": sensor_scores}
     
     def TargetCallback(self, msg):
         self.target_ready = True
@@ -171,17 +182,18 @@ class PTZCamera():
         total_score.data = self.total_score
         self.pub_total_score.publish(total_score)
         
-        # publish sensor scores
-        sensor_scores = SensorArray()
-        sensor_scores.sensors = []
-        for i in self.valid_sensors.keys():
-            if self.valid_sensors[i]:
-                sensor = Sensor()
-                sensor.type = i
-                sensor.score = self.sensor_scores[i]
-                sensor_scores.sensors.append(sensor)
+        # # publish sensor scores
+        # sensor_scores = SensorArray()
+        # sensor_scores.sensors = []
+        # for i in self.valid_sensors.keys():
+        #     if self.valid_sensors[i]:
+        #         sensor = Sensor()
+        #         sensor.type = i
+        #         print(self.sensor_scores[i])
+        #         sensor.score = self.sensor_scores[i]
+        #         sensor_scores.sensors.append(sensor)
                 
-        self.pub_sensor_scores.publish(sensor_scores)
+        # self.pub_sensor_scores.publish(sensor_scores)
                 
         #publish exchange data
         data = ExchangeData()
@@ -195,6 +207,8 @@ class PTZCamera():
         sensor_arr.sensors = []
         weight_arr = WeightArray()
         weight_arr.weights = []
+        scores_arr = WeightArray()
+        scores_arr.weights = []
         
         for i in self.valid_sensors.keys():
             sensor = Sensor()
@@ -204,19 +218,26 @@ class PTZCamera():
 
             for event in self.targets.keys():
                 if event in self.sensor_weight[i].keys():
-                    weight = Weight()
+                    weight          = Weight()
                     weight.event_id = event
-                    weight.type = i
-                    weight.score = self.sensor_weight[i][event]
+                    weight.type     = i
+                    weight.score    = self.sensor_weight[i][event]
                     weight_arr.weights.append(weight)
                 
                 else:
-                    weight = Weight()
+                    weight          = Weight()
                     weight.event_id = event
-                    weight.type = i
-                    weight.score = 0
+                    weight.type     = i
+                    weight.score    = 0
                     weight_arr.weights.append(weight)
-                    
+                
+                weight          = Weight()
+                weight.event_id = event
+                weight.type     = i
+                weight.score    = self.sensor_scores[i][event]
+                scores_arr.weights.append(weight)
+                
+                
         data.operation_range    = self.operation_range
         data.approx_param       = self.approx_param
         data.smoke_variance     = self.smoke_variance
@@ -224,8 +245,9 @@ class PTZCamera():
         data.angle_of_view      = self.angle_of_view
         data.camera_variance    = self.camera_variance
         
-        data.weights = weight_arr
-        data.role = sensor_arr
+        data.sensor_scores  = scores_arr
+        data.weights        = weight_arr
+        data.role           = sensor_arr
    
         self.pub_exchange_data.publish(data)
         self.pub_sensor_weight.publish(weight_arr)
@@ -320,11 +342,13 @@ class PTZCamera():
         if self.target_ready:
             self.neighbors          = self.neighbors_buffer.copy()                      
             self.targets            = self.target_buffer.copy()   
-            
+                
             self.total_score    = 0
             self.sensor_scores = {}
             for i in self.valid_sensors.keys():
-                self.sensor_scores[i]  = 0
+                self.sensor_scores[i] = {}
+                for event in self.targets.keys():
+                    self.sensor_scores[i][event]  = 0.
             
             for target in self.targets.keys():
                 self.event_density[target]    = self.ComputeEventDensity(target = self.targets[target])
@@ -356,23 +380,17 @@ class PTZCamera():
             
    
     def UpdatePosition(self, u_p):
-        if np.linalg.norm(u_p) > self.max_speed:
-            u_p = self.max_speed*(u_p/np.linalg.norm(u_p))
-        elif np.linalg.norm(u_p) < self.max_speed/2 and np.linalg.norm(u_p) > 0:
-            u_p = self.max_speed*(u_p/np.linalg.norm(u_p))
+        u_p = self.max_speed*(u_p/np.linalg.norm(u_p))
+
         
         u_avoid = np.array([0., 0.])
-        for neighbor in self.sensor_graph[-1]:
-            neighbor_pos = self.neighbors[neighbor]['position']
-            vec = neighbor_pos - self.pos
-            u_avoid -= (self.safe_distance - np.linalg.norm(vec))*(vec/np.linalg.norm(vec))
+        # for neighbor in self.sensor_graph[-1]:
+        #     neighbor_pos = self.neighbors[neighbor]['position']
+        #     vec = self.pos - neighbor_pos
+        #     u_avoid -= (self.safe_distance - np.linalg.norm(vec))*(vec/np.linalg.norm(vec))
         
-        if np.linalg.norm(u_avoid) > 0:
-            u_avoid /= np.linalg.norm(u_avoid)
-        
-        # print(u_avoid) 
-        # print(self.id, ": ", u_p)
-            
+        # u_avoid /= self.max_speed*np.linalg.norm(u_avoid) 
+          
         self.pos += self.K_p * ((1 - self.avoid_weight)*u_p + self.avoid_weight*u_avoid) * self.step if not np.isnan(u_p)[0] else self.pos
         
         if self.pos[0] < 0:
@@ -387,7 +405,15 @@ class PTZCamera():
                 
     def UpdatePerspective(self, u_v):
         
-        self.perspective += self.K_v*u_v
+        #u_v /= np.linalg.norm(u_v)
+        try:
+            turning = math.acos((u_v @ self.perspective.T)/np.linalg.norm(u_v))
+            if  turning > 15/180*np.pi:
+                u_v *= (15/180*np.pi)/turning
+        except:
+            u_v = np.array([0., 0.])
+            
+        self.perspective += self.K_v*u_v*self.step
         self.perspective /= self.Norm(self.perspective)
 
         if self.pos[0] + self.perspective[0] < 0 or self.pos[0] + self.perspective[0] > 24:
@@ -408,7 +434,7 @@ class PTZCamera():
                 pos_self = self.pos
                 grid_size = self.grid_size
                 
-                total_cost = (((pos_self[0]/grid_size[0] - x_coords)**2 + (pos_self[1]/grid_size[1] - y_coords)**2) - (50*self.sensor_weight[role][event])**2)*global_event
+                total_cost = (((pos_self[0]/grid_size[0] - x_coords)**2 + (pos_self[1]/grid_size[1] - y_coords)**2) - (100*self.sensor_weight[role][event])**2)*global_event
                 sensor_voronoi = np.full(self.size, self.id, dtype=object)
                 
             else:
@@ -419,7 +445,7 @@ class PTZCamera():
                 pos_self = self.neighbors[neighbor]["position"]
                 grid_size = self.grid_size
 
-                cost = (((pos_self[0]/grid_size[0] - x_coords)**2 + (pos_self[1]/grid_size[1] - y_coords)**2) - (50*self.neighbors[neighbor]["weights"][role][event])**2)*global_event#self.ComputeCost(role, pos_self, grid_size, x_coords, y_coords)
+                cost = (((pos_self[0]/grid_size[0] - x_coords)**2 + (pos_self[1]/grid_size[1] - y_coords)**2) - (100*self.neighbors[neighbor]["weights"][role][event])**2)*global_event#self.ComputeCost(role, pos_self, grid_size, x_coords, y_coords)
                 sensor_voronoi = np.where(cost < total_cost, neighbor, sensor_voronoi)
                 total_cost = np.where(cost < total_cost, cost, total_cost)
 
@@ -433,27 +459,35 @@ class PTZCamera():
                     if self.valid_sensors[sensor] and sensor in self.targets[event][5]:
                         for neighbor in self.neighbors.values():  
                             if neighbor['role'][sensor] > 0:
-                                single_sensor_sum += 1
+                                single_sensor_sum += neighbor['sensor_scores'][sensor][event]
                                 
-                        self.sensor_weight[sensor][event] = 1/(1 + single_sensor_sum)
+                        self.sensor_weight[sensor][event] = (1 + self.sensor_scores[sensor][event])/(1 + self.sensor_scores[sensor][event] + single_sensor_sum)
                     
                     else: 
                         self.sensor_weight[sensor][event] = 0
 
-                total = 0
+            total = 0
+            for event in self.targets.keys():
                 for sensor in self.valid_sensors.keys():
                     if self.valid_sensors[sensor]:
                         total += self.sensor_weight[sensor][event]
-                
+            
+            for event in self.targets.keys():
                 for sensor in self.valid_sensors.keys():
                     if self.valid_sensors[sensor]:
-                        self.sensor_weight[sensor][event] /= total
-        
+                        self.sensor_weight[sensor][event] = self.sensor_weight[sensor][event]/total if total > 0 else 1
+            
         else:
-             for event in self.targets.keys():
+            cnt = 0
+            for event in self.targets.keys():
                 for sensor in self.valid_sensors.keys():
                     if self.valid_sensors[sensor] and sensor in self.targets[event][5]:
-                        self.sensor_weight[sensor][event] = 1
+                        cnt += 1
+            
+            for event in self.targets.keys():
+                for sensor in self.valid_sensors.keys():
+                    if self.valid_sensors[sensor] and sensor in self.targets[event][5]:
+                        self.sensor_weight[sensor][event] = 1/cnt
                     else:
                         self.sensor_weight[sensor][event] = 0
         
@@ -465,9 +499,10 @@ class PTZCamera():
         for event in self.targets.keys():
             for role in self.valid_sensors.keys():
                 tmp = np.zeros(self.size, dtype=np.float64)
+                quality = np.zeros(self.size, dtype=np.float64)
                 if self.valid_sensors[role] and role in self.targets[event][5]:
                     quality = self.ComputeSelfQuality(role=role, event=event)
-                    tmp = 1 + quality
+                    tmp = quality
                     
                     for k in self.valid_sensors.keys():
                         if k in self.targets[event][5] and k != role:
@@ -478,7 +513,7 @@ class PTZCamera():
                     tmp *= self.event_density[event]*self.grid_size[0]
 
                     self.total_score += self.sensor_weight[role][event]*np.sum(tmp)
-                self.sensor_scores[role] += np.sum(tmp)
+                self.sensor_scores[role][event] = np.sum(quality)
                     
     def ComputeControlSignal(self):
         u_p = np.array([0., 0.])  
@@ -496,8 +531,8 @@ class PTZCamera():
                     sensor_gradient[0] = self.ComputeGradient(role, event, 'x')
                     sensor_gradient[1] = self.ComputeGradient(role, event, 'y')
                     
-                    # sensor_gradient[0] /= np.max(sensor_gradient[0])
-                    # sensor_gradient[1] /= np.max(sensor_gradient[1])
+                    # sensor_gradient[0] /= np.linalg.norm(np.array(np.sum(sensor_gradient[0]), np.sum(sensor_gradient[1])))
+                    # sensor_gradient[1] /= np.linalg.norm(np.array(np.sum(sensor_gradient[0]), np.sum(sensor_gradient[1])))
                     
                     perspective_gradient_x = self.ComputeGradient('camera', event, 'perspective_x')
                     perspective_gradient_y = self.ComputeGradient('camera', event, 'perspective_y')
@@ -514,8 +549,8 @@ class PTZCamera():
                                     perspective_gradient_y *= (1 + self.w_coop*coop_quality)
                     
                     if role == 'camera':
-                        u_v[0] += np.sum(perspective_gradient_x * self.event_density[event])
-                        u_v[1] += np.sum(perspective_gradient_y * self.event_density[event])                                        
+                        u_v[0] += self.sensor_weight[role][event]*np.sum(perspective_gradient_x * self.event_density[event])
+                        u_v[1] += self.sensor_weight[role][event]*np.sum(perspective_gradient_y * self.event_density[event])                                        
                                 
                     total_gradient[0] = sensor_gradient[0]
                     total_gradient[1] = sensor_gradient[1]
@@ -524,8 +559,8 @@ class PTZCamera():
                         f = self.ComputeSelfQuality(role=role, event = event)
                         for i in self.valid_sensors.keys():
                             if self.valid_sensors[i] and i != role and k in self.targets[event][5]:
-                                sensor_gradient[0] = self.w_coop*self.ComputeGradient(i, event, 'x')*(1 + f)
-                                sensor_gradient[1] = self.w_coop*self.ComputeGradient(i, event, 'y')*(1 + f)
+                                sensor_gradient[0] = self.w_coop*self.ComputeGradient(i, event, 'x')*(f)
+                                sensor_gradient[1] = self.w_coop*self.ComputeGradient(i, event, 'y')*(f)
                                 
                                 for k in self.valid_sensors.keys():
                                     if k in self.targets[event][5] and k != i and k != role:
@@ -810,8 +845,9 @@ class PTZCamera():
         z = multivariate_normal.pdf(xy, mean=mu, cov=covariance)
         event = z.reshape(x.shape)
             
-        #return np.ones(self.size)/2
-        return event
+        #return np.ones(self.size)
+
+        return event/np.sum(event)
 
     def Norm(self, arr):
 
@@ -833,8 +869,23 @@ class PTZCamera():
             plt.title("Sensor Voronoi of " + role)
             plt.show()
         
-
+def KillCB(msg):
+    global kill
+    if msg.data == 1:
+        kill = True
+        
+def FailureCB(msg):
+    global failure
+    if msg.data == 1:
+        failure = True
+    
 if __name__ == "__main__":
+    global kill
+    global failure
+    
+    kill = False
+    failure = False
+    
     rospy.init_node('control_manager', anonymous=False, disable_signals=True)
     
     r = rospy.get_param("/rate", "60")
@@ -850,10 +901,11 @@ if __name__ == "__main__":
 
     # General Agent's Settings
     id                      = rospy.get_param("~id", default=0)
-        
+    
+    np.random.seed(id + 5)
     pos_x                   = rospy.get_param("~pos_x", default=0)
     pos_y                   = rospy.get_param("~pos_y", default=0)
-    init_position           = np.array([pos_x, pos_y])#(np.random.random((1,2))*24)[0]#
+    init_position           = np.array([pos_x, pos_y])#(np.random.random((1,2))*3)[0]# + 9#
     max_speed               = rospy.get_param("~max_speed", default=1)
     camera_valid            = rospy.get_param("~camera", default=0)
     manipulator_valid       = rospy.get_param("~manipulator", default=0)
@@ -900,8 +952,33 @@ if __name__ == "__main__":
         smoke_detector_info = None
 
     UAV_self = PTZCamera(map_size = map_size, grid_size = grid_size, general_properties=general_info,
-                            camera_properties=camera_info, smoke_detector_properties=smoke_detector_info, manipulator_properties=manipulator_info)
+                        camera_properties=camera_info, smoke_detector_properties=smoke_detector_info, 
+                        manipulator_properties=manipulator_info, coop = True, balance = True, strength = 10000)
     
-    while not rospy.is_shutdown():
+    rospy.Subscriber("/kill", Int16, KillCB)
+    rospy.Subscriber("/agent_"+str(id)+"/failure", Int16, FailureCB)
+    
+    frame = []
+    score = []
+    pos_x = []
+    pos_y = []
+    cnt = 0
+    
+    while not rospy.is_shutdown() and not kill and not failure:
         UAV_self.Update()
+        
+        frame.append(cnt)
+        score.append(UAV_self.total_score)
+        pos_x.append(UAV_self.pos[0])
+        pos_y.append(UAV_self.pos[1])
+        cnt += 1
+        
         rate.sleep()
+    
+    plt_dict = {'frame_id'              : frame,
+                str(id)+"'s score"      : score,
+                "pos_x"                 : pos_x,
+                "pos_y"                 : pos_y}
+            
+    df = pd.DataFrame.from_dict(plt_dict) 
+    df.to_csv (r"~/research_ws/src/voronoi_cbsa/result/8/coop/balance_coop_"+str(id)+".csv", index=False, header=True)

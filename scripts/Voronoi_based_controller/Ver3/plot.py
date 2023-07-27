@@ -11,7 +11,7 @@ import pandas as pd
 
 from cv_bridge import CvBridge
 from sensor_msgs.msg import Image
-from std_msgs.msg import Int16MultiArray, Float32MultiArray, Float64MultiArray, Float64, String
+from std_msgs.msg import Int16MultiArray, Float32MultiArray, Float64MultiArray, Float64, String, Int16
 from sensor_msgs.msg import Image
 from geometry_msgs.msg import PointStamped, Pose
 from voronoi_cbsa.msg import ExchangeData, NeighborInfoArray, TargetInfoArray, SensorArray, ValidSensors, WeightArray
@@ -56,7 +56,8 @@ class Visualize2D():
         self.agent_score_plt        = {}
         self.frame                  = []
         self.cnt                    = 0
-        self.agent_sensor_weights    = {}
+        self.agent_sensor_weights   = {}
+        self.agent_failure          = {}
         #self.FetchAgentInfo()
         
         color_pool = [(255, 0, 0), (255, 128, 0), (255,255,0), (0,255,0), (0,255,255), (0,0,255), (178,102,255), (255,0,255), (13, 125, 143)]
@@ -64,9 +65,11 @@ class Visualize2D():
         rospy.Subscriber("/target", TargetInfoArray, self.TargetCallback)
 
         for i in range(self.total_agents):
-            self.agent_sensor_scores[i] = {}
-            self.agent_sensor_weights[i]   = {}
-            self.agent_score_plt[i]     = []
+            self.agent_sensor_scores[i]     = {}
+            self.agent_sensor_weights[i]    = {}
+            self.agent_score_plt[i]         = []
+            self.agent_failure[i]           = False
+            
             try:
                 self.color[i] = color_pool[i]
             except:
@@ -77,6 +80,7 @@ class Visualize2D():
             rospy.Subscriber("/agent_"+str(i)+"/visualize/sensor_scores", SensorArray, self.SensorScoresCB(i))
             rospy.Subscriber("/agent_"+str(i)+"/visualize/total_score", Float64, self.TotalScoreCB(i))
             rospy.Subscriber("/agent_"+str(i)+"/visualize/pose", Pose, self.PoseCB(i))
+            rospy.Subscriber("/agent_"+str(i)+"/failure", Int16, self.FailureCB(i))
                     
         self.window_size = self.size*4
         self.display = pygame.display.set_mode(self.window_size)
@@ -166,6 +170,13 @@ class Visualize2D():
             requirements = [target.required_sensor[i] for i in range(len(target.required_sensor))]
             self.targets.append([pos, std, weight, vel, target.id, requirements])
     
+    def FailureCB(self, id):
+        def callback(msg):
+            if msg.data == 1:
+                self.agent_failure[id] = True
+        
+        return callback
+    
     def SensorScoresCB(self, id):
         def callback(msg):
             for sensor in msg.sensors:
@@ -243,12 +254,13 @@ class Visualize2D():
                 sensor_voronoi = np.full(self.size, -1)
 
                 for agent in agents_pos.keys():
-                    pos_self = agents_pos[agent]
-                    grid_size = self.grid_size
+                    if not self.agent_failure[agent]:
+                        pos_self = agents_pos[agent]
+                        grid_size = self.grid_size
 
-                    cost = (((pos_self[0]/grid_size[0] - x_coords)**2 + (pos_self[1]/grid_size[1] - y_coords)**2))*global_event#self.ComputeCost(role, pos_self, grid_size, x_coords, y_coords)
-                    sensor_voronoi = np.where(cost < total_cost, agent, sensor_voronoi)
-                    total_cost = np.where(cost < total_cost, cost, total_cost)
+                        cost = (((pos_self[0]/grid_size[0] - x_coords)**2 + (pos_self[1]/grid_size[1] - y_coords)**2))*global_event#self.ComputeCost(role, pos_self, grid_size, x_coords, y_coords)
+                        sensor_voronoi = np.where(cost < total_cost, agent, sensor_voronoi)
+                        total_cost = np.where(cost < total_cost, cost, total_cost)
                     
             else:
                 
@@ -256,7 +268,7 @@ class Visualize2D():
                 sensor_voronoi = np.full(self.size, -1)
                     
                 for agent in agents_pos.keys():
-                    if agent in self.agent_valid_sensors.keys():
+                    if agent in self.agent_valid_sensors.keys() and not self.agent_failure[agent]:
                         if role in self.agent_valid_sensors[agent]:
                             pos_self = agents_pos[agent]
                             grid_size = self.grid_size
@@ -303,26 +315,7 @@ class Visualize2D():
                             color[1] = w*self.color[id][1] + (1-w)*event_plt[x_map,y_map]
                             color[2] = w*self.color[id][2] + (1-w)*event_plt[x_map,y_map]
                             pygame.draw.rect(self.display, color, rect, 1)
-            
-            elif self.plot_type == 'footprint':
-                sensor_plt = ComputeSensorFootprint(self.plot_role, self.agent_pos.copy(), event.copy())
-                for x_map,x in enumerate(range(0, self.window_size[0], self.blockSize)):
-                    for y_map,y in enumerate(range(0, self.window_size[1], self.blockSize)):
-                        
-                        id = voronoi_plt[y_map, x_map]
-                        rect = pygame.Rect(x, y, self.blockSize, self.blockSize)
-                        pygame.draw.rect(self.display, (event_plt[x_map,y_map],event_plt[x_map,y_map],event_plt[x_map,y_map]), rect, 1)
-                        
-                        if id != -1:
-                            rect = pygame.Rect(x, y, self.blockSize, self.blockSize)
-                            w = 0.8
-                            color = [0, 0, 0]
-                            color[0] = w*self.color[id][0] + (1-w)*event_plt[x_map,y_map]
-                            color[1] = w*self.color[id][1] + (1-w)*event_plt[x_map,y_map]
-                            color[2] = w*self.color[id][2] + (1-w)*event_plt[x_map,y_map]
-                            pygame.draw.rect(self.display, color, rect, 1)
-            
-                     
+                            
             font = pygame.font.Font('freesansbold.ttf', 30)
             text = font.render(self.plot_role, True, (255,255,255))
             textRect = text.get_rect()
@@ -338,7 +331,7 @@ class Visualize2D():
                                                                   (center[0] + offset, center[1] + offset)))
                     
                     font = pygame.font.Font('freesansbold.ttf', 20)
-                    context_sensor = "{"
+                    context_sensor = str(i) + ": " + "{"
                     for sensor in self.sensor_pool:
                         if sensor in self.targets[i][5]:
                             context_sensor += sensor + " "
@@ -349,68 +342,80 @@ class Visualize2D():
                     textRect.center = (center[0], center[1] - 30)
                     self.display.blit(text, textRect)
             
-            total_score = 0
-            score_ready = True
+            #total_score = 0
+            #score_ready = True
             for id in self.agent_pos.keys():
                 
-                if id in self.agent_scores.keys():
-                    self.agent_score_plt[id].append(self.agent_scores[id])
-                    
-                # compute total scores
-                if id in self.agent_scores.keys():
-                    total_score += self.agent_scores[id]
-                else:
-                    score_ready = False
-                
-                # Draw id and valid sensors
-                center = self.agent_pos[id]/self.grid_size*self.blockSize
-                font = pygame.font.Font('freesansbold.ttf', 15)
-                context_sensor = "{"
-                for sensor in self.sensor_pool:
-                    if id in self.agent_valid_sensors.keys():
-                        if sensor in self.agent_valid_sensors[id]:
-                            context_sensor += sensor + " "
-                context_sensor += "}"
+                if not self.agent_failure[id]:
+                    if id in self.agent_scores.keys():
+                        self.agent_score_plt[id].append(self.agent_scores[id])
                         
-                text = font.render(context_sensor, True, self.color[id])
-                textRect = text.get_rect()
-                upper = center[1] - 20 if center[1] - 20 > 0 else center[1] + 20
-                textRect.center = (center[0], upper)
-                self.display.blit(text, textRect)
-                
-                text = font.render(str(id), True, self.color[id])
-                textRect = text.get_rect()
-                upper = center[1] - 40 if center[1] - 40 > 0 else center[1] + 40
-                textRect.center = (center[0], upper)
-                self.display.blit(text, textRect)
-                
-                # Draw agent's position
-                if id in self.agent_valid_sensors.keys():
-                    if self.plot_role in self.agent_valid_sensors[id]:
-                        width = 0
-                    elif self.plot_role == "All":
-                        width = 0
-                    else:
-                        width = 2
-                    pygame.draw.circle(self.display, self.color[id], 
-                        self.agent_pos[id]/self.grid_size*self.blockSize, radius=10, width=width) 
-                
-                    if 'camera' in self.agent_valid_sensors[id]:
-                        # Draw agent's perspective
-                        pos = self.agent_pos[id]/self.grid_size*self.blockSize
-                        per = self.agent_per[id]/self.grid_size*self.blockSize
-                        pygame.draw.line(self.display, self.color[id], pos, pos + per, 2)
+                    # # compute total scores
+                    # if id in self.agent_scores.keys():
+                    #     total_score += self.agent_scores[id]
+                    # else:
+                    #     score_ready = False
+                    
+                    # Draw id and valid sensors
+                    center = self.agent_pos[id]/self.grid_size*self.blockSize
+                    font = pygame.font.Font('freesansbold.ttf', 15)
+                    context_sensor = "{"
+                    for sensor in self.sensor_pool:
+                        if id in self.agent_valid_sensors.keys():
+                            if sensor in self.agent_valid_sensors[id]:
+                                context_sensor += sensor + " "
+                    context_sensor += "}"
+                            
+                    text = font.render(context_sensor, True, self.color[id])
+                    textRect = text.get_rect()
+                    upper = center[1] - 20 if center[1] - 20 > 0 else center[1] + 20
+                    textRect.center = (center[0], upper)
+                    self.display.blit(text, textRect)
+                    
+                    text = font.render(str(id), True, self.color[id])
+                    textRect = text.get_rect()
+                    upper = center[1] - 40 if center[1] - 40 > 0 else center[1] + 40
+                    textRect.center = (center[0], upper)
+                    self.display.blit(text, textRect)
+                    
+                    # Draw agent's position
+                    if id in self.agent_valid_sensors.keys():
+                        if self.plot_role in self.agent_valid_sensors[id]:
+                            width = 0
+                        elif self.plot_role == "All":
+                            width = 0
+                        else:
+                            width = 2
+                        pygame.draw.circle(self.display, self.color[id], 
+                            self.agent_pos[id]/self.grid_size*self.blockSize, radius=10, width=width) 
+                    
+                        if 'camera' in self.agent_valid_sensors[id]:
+                            # Draw agent's perspective
+                            pos = self.agent_pos[id]/self.grid_size*self.blockSize
+                            per = self.agent_per[id]/self.grid_size*self.blockSize
+                            pygame.draw.line(self.display, self.color[id], pos, pos + per, 2)
+                else:
+                    # Draw agent's position
+                    if id in self.agent_valid_sensors.keys():
+                        if self.plot_role in self.agent_valid_sensors[id]:
+                            width = 0
+                        elif self.plot_role == "All":
+                            width = 0
+                        else:
+                            width = 2
+                        pygame.draw.circle(self.display, (125, 125, 125), 
+                            self.agent_pos[id]/self.grid_size*self.blockSize, radius=10, width=width) 
+                    
+            # if score_ready:
+            #     font = pygame.font.Font('freesansbold.ttf', 32)
+            #     text = font.render(str(np.round(total_score, 3)), True, (255,255,255))
+            #     textRect = text.get_rect()
+            #     textRect.center = (100, 80)
+            #     self.display.blit(text, textRect)
 
-            if score_ready:
-                font = pygame.font.Font('freesansbold.ttf', 32)
-                text = font.render(str(np.round(total_score, 3)), True, (255,255,255))
-                textRect = text.get_rect()
-                textRect.center = (100, 80)
-                self.display.blit(text, textRect)
-
-                self.total_score.append(total_score)
-                self.frame.append(self.cnt)
-                self.cnt += 1
+            #     self.total_score.append(total_score)
+            #     self.frame.append(self.cnt)
+            #     self.cnt += 1
                 
         pygame.display.flip()
         
@@ -419,7 +424,7 @@ class Visualize2D():
         pixels = cv2.flip(pixels, 1)
 
         self.images.append(pixels)
-        self.plot()
+        #self.plot()
         
     def plot(self):
         plt.plot(self.frame, self.total_score, color = 'b')
@@ -434,31 +439,40 @@ class Visualize2D():
         
         
     def End(self):
-        imageio.mimsave(self.prefix+"coop-3"+'.gif', self.images)
-     
+        imageio.mimsave(self.prefix+"/8/coop/balance"+'.gif', self.images)
+ 
+def KillCB(msg):
+    global kill
+    if msg.data == 1:
+        kill = True  
+         
 if __name__=="__main__":
+    global kill
+    kill = False
+    
     rospy.init_node('visualizer', anonymous=False, disable_signals=True)
+    
     total_agents = rospy.get_param('/total_agents', '1')
+    rospy.Subscriber("/kill", Int16, KillCB)
+    
     pygame.init()
 
     visualizer = Visualize2D()
-    Done = False
-    while not Done:
-        for op in pygame.event.get():
-            if op.type == pygame.QUIT:
-                Done = True 
-                visualizer.End()
+    while True:
+        if kill:
+            visualizer.End()
+            break
         
         visualizer.Update()
             
     pygame.quit()   
 
-    plt_dict = {'frame_id': visualizer.frame,
-                'total score': visualizer.total_score}
+    # plt_dict = {'frame_id': visualizer.frame,
+    #             'total score': visualizer.total_score}
     
-    for id in range(total_agents):
-        if len(visualizer.agent_score_plt[id]) > 0:
-            plt_dict[str(id)+"'s score"] = visualizer.agent_score_plt[id]
+    # for id in range(total_agents):
+    #     if len(visualizer.agent_score_plt[id]) > 0:
+    #         plt_dict[str(id)+"'s score"] = visualizer.agent_score_plt[id]
         
-    df = pd.DataFrame.from_dict(plt_dict) 
-    df.to_csv (r'~/research_ws/src/voronoi_cbsa/result/coop-3.csv', index=False, header=True)
+    # df = pd.DataFrame.from_dict(plt_dict) 
+    # df.to_csv (r'~/research_ws/src/voronoi_cbsa/result/non-coop-3.csv', index=False, header=True)

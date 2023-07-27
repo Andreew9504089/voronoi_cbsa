@@ -3,13 +3,13 @@
 import rospy
 from geometry_msgs.msg import Point
 from voronoi_cbsa.msg import ExchangeData, NeighborInfoArray, ExchangeDataArray, TargetInfoArray, NeighborInfo
-from std_msgs.msg import Int16MultiArray, Float32MultiArray
+from std_msgs.msg import Int16MultiArray, Float32MultiArray, Int16
 
 import sys
 import numpy as np
 
 class DataCenter():
-    def __init__(self, id, max_age = 5):
+    def __init__(self, id, max_age = 3):
         self.communication_range = float(rospy.get_param("communication_range", "-1"))
         self.pos = ''
         self.id = id
@@ -24,6 +24,7 @@ class DataCenter():
         self.FoV_init = False
         self.global_voronoi_init = False
         self.sub_voronoi_init = False
+        self.failure = False
 
         self.ROSInit()
 
@@ -37,7 +38,8 @@ class DataCenter():
         rospy.Subscriber("local/exchange_data", ExchangeData, self.SelfCallback)
         rospy.Subscriber("/target", TargetInfoArray, self.TargetCallback)
         rospy.Subscriber("local/position", Point, self.PositionCallback)
-
+        rospy.Subscriber("failure", Int16, self.FailureCB)
+    
         self.pub_target2control      = rospy.Publisher("local/target", TargetInfoArray, queue_size=10)
         self.pub_neighbor2control    = rospy.Publisher("local/neighbor_info", ExchangeDataArray, queue_size=10)
         self.pub_exchange2neighbor   = rospy.Publisher("global/exchange_data", ExchangeData, queue_size=10)
@@ -90,11 +92,15 @@ class DataCenter():
         msg.data = data
         self.pub_neighbor2control.publish(msg)
 
+    def FailureCB(self, msg):
+        if msg.data == 1:
+            self.failure = True
+        
     def Run(self):
         r = rospy.get_param("/rate", "60")
         rate = rospy.Rate(float(r))
 
-        while not rospy.is_shutdown():
+        while not rospy.is_shutdown() and not self.failure:
             
             if self.target_init:
                 self.pub_target2control.publish(self.target)

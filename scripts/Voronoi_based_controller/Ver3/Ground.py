@@ -19,8 +19,8 @@ def norm(arr):
     return sqrt(sum)
 
 def TargetDynamics(x, y, v):
-    spd = 0.02
-    turn = np.random.randint(-15, 15)/180*np.pi
+    spd = 0.005
+    turn = np.random.randint(-50, 50)/1800*np.pi
     rot = np.array([[cos(turn), -sin(turn)],
                     [sin(turn), cos(turn)]])
     v = rot@v.reshape(2,1)
@@ -29,7 +29,7 @@ def TargetDynamics(x, y, v):
     
     return (x,y), np.asarray([[0],[0]])
     #return (np.round(float(np.clip(v[0]*spd + x, 0, 24)),3), np.round(float(np.clip(v[1]*spd + y, 0, 24)),3)),\
-    #           np.round(np.array([[vx],[vy]]), len(str(spd).split(".")[1]))
+    #         np.round(np.array([[vx],[vy]]), len(str(spd).split(".")[1]))
 
 def RandomUnitVector():
     v = np.asarray([np.random.normal() for i in range(2)])
@@ -49,7 +49,8 @@ if __name__ == "__main__":
         else:
             return np.asarray(pos)
     
-    targets = [[random_pos((12,12)), 2, 10,RandomUnitVector(), ['camera', 'smoke_detector']]]
+    targets = [[random_pos((18,5)), 1, 10,RandomUnitVector(), ['camera', 'manipulator']],
+               [random_pos((18,18)), 1, 10,RandomUnitVector(), ['camera', 'smoke_detector']]]
     
     while not rospy.is_shutdown():
             
