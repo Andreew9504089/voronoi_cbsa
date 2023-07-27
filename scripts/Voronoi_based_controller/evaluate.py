@@ -27,6 +27,7 @@ class Evaluator:
             for type in paths.keys():
                 frames = []
                 scores = {}
+                max_len = 0
                 
                 files = sorted(glob.glob(os.path.join(paths[type], "*.csv")))
                 for i, file in enumerate(files):
@@ -36,12 +37,18 @@ class Evaluator:
                     data = np.array((df['frame_id'].values, df[col]))
                     scores[i] = (data[1][:])
 
-                    if len(data[0][:]) < len(frames) or i == 0:
+                    # if len(data[0][:]) < len(frames) or i == 0:
+                    #     frames = data[0][:]
+                    
+                    if len(data[0][:]) > max_len:
+                        max_len = len(data[0][:])
                         frames = data[0][:]
                 
                 total_mat = []  
                 for i in scores.keys():
-                    total_mat = scores[i][:len(frames)] if i == 0 else np.dstack([total_mat, scores[i][:len(frames)]])
+                    tmp = np.squeeze(np.zeros((max_len, 1)))
+                    tmp[0:len(scores[i][:])] = scores[i][:]
+                    total_mat = tmp if i == 0 else np.dstack([total_mat, tmp])
                 
                 result = np.squeeze(np.sum(total_mat, axis=2))
 
