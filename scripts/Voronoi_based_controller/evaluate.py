@@ -36,9 +36,6 @@ class Evaluator:
                     col = str(i)+"'s score"
                     data = np.array((df['frame_id'].values, df[col]))
                     scores[i] = (data[1][:])
-
-                    # if len(data[0][:]) < len(frames) or i == 0:
-                    #     frames = data[0][:]
                     
                     if len(data[0][:]) > max_len:
                         max_len = len(data[0][:])
@@ -48,12 +45,14 @@ class Evaluator:
                 for i in scores.keys():
                     tmp = np.squeeze(np.zeros((max_len, 1)))
                     tmp[0:len(scores[i][:])] = scores[i][:]
+                    ax1.scatter(len(scores[i][:]), scores[i][-1], label = str(i)+"'s failure")
                     total_mat = tmp if i == 0 else np.dstack([total_mat, tmp])
                 
                 result = np.squeeze(np.sum(total_mat, axis=2))
 
                 label = type
                 ax1.plot(frames, result, color = color_pool[type], label=label)
+                
                 
         title = "Score of agent " + str(agent_id) if agent_id != -1 else "Total Score"
         ax1.set_xlabel("frame id")

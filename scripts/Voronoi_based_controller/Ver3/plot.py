@@ -14,7 +14,7 @@ from sensor_msgs.msg import Image
 from std_msgs.msg import Int16MultiArray, Float32MultiArray, Float64MultiArray, Float64, String, Int16
 from sensor_msgs.msg import Image
 from geometry_msgs.msg import PointStamped, Pose
-from voronoi_cbsa.msg import ExchangeData, NeighborInfoArray, TargetInfoArray, SensorArray, ValidSensors, WeightArray
+from voronoi_cbsa.msg import ExchangeData, NeighborInfoArray, TargetInfoArray, SensorArray, ValidSensors, WeightArray,ExchangeDataArray
 from scipy.stats import multivariate_normal
 from matplotlib.animation import FuncAnimation
 import itertools
@@ -108,7 +108,6 @@ class Visualize2D():
                                         'manipulator'    : manipulator_valid,
                                         'smoke_detector' : smoke_detector_valid}
             
-            
             if camera_valid:
                 # Camera Settings
                 per_x               = rospy.get_param("~per_x", default=0)
@@ -169,7 +168,7 @@ class Visualize2D():
             vel = np.array([vel_x, vel_y])
             requirements = [target.required_sensor[i] for i in range(len(target.required_sensor))]
             self.targets.append([pos, std, weight, vel, target.id, requirements])
-    
+            
     def FailureCB(self, id):
         def callback(msg):
             if msg.data == 1:
@@ -216,18 +215,6 @@ class Visualize2D():
                 
         return callback
     
-    # def NeighborCB(self, id, sensor):
-    #     def callback(msg):
-    #         agent_id = msg.data[0]
-    #         neighbors = []
-
-    #         for i in range(1, len(msg.data)):
-    #             neighbors.append(msg.data[i])
-
-    #         self.agent_neighbors[agent_id] = neighbors
-            
-    #     return callback
-    
     def Update(self):
         def ComputeEventDensity(map_size, target, grid_size, role):
 
@@ -258,7 +245,7 @@ class Visualize2D():
                         pos_self = agents_pos[agent]
                         grid_size = self.grid_size
 
-                        cost = (((pos_self[0]/grid_size[0] - x_coords)**2 + (pos_self[1]/grid_size[1] - y_coords)**2))*global_event#self.ComputeCost(role, pos_self, grid_size, x_coords, y_coords)
+                        cost = (((pos_self[0]/grid_size[0] - x_coords)**2 + (pos_self[1]/grid_size[1] - y_coords)**2))*global_event
                         sensor_voronoi = np.where(cost < total_cost, agent, sensor_voronoi)
                         total_cost = np.where(cost < total_cost, cost, total_cost)
                     
